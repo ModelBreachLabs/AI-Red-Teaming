@@ -75,7 +75,7 @@ python3 injection_judge.py <previous_results>.csv -u http://<ollama_URL>:11434/a
       2. Have a Chatbot reference the ticket and attempt to bypass safety controls (Pull API keys, give money/discounts/system instructions, etc)
       ```
 
-## Jail Breaking 
+## Jailbreaking 
 ```
 python3 injection_test.py 10 Prompts/jailbreaks.csv.csv
 # rename file 
