@@ -4,7 +4,7 @@
 - Can it see other users information?
 - Does it have access to resources it should not?
 
-### This can be tested with Burp Suite or through the chat, this can be attempted with any resource available to the AI 
+### This can be tested with Burp Suite or through a chat, and should be tested with any resource available to the AI 
 
 - Examples
   - Being able to see a ticket without being authenticated
