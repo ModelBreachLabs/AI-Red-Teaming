@@ -78,6 +78,7 @@
 4. LLMmap
    ```
    https://github.com/pasquini-dario/LLMmap
+   # Update req.txt to contain accelerate==1.8.1
    
    python3 -m venv venv
    source/bin/activate
