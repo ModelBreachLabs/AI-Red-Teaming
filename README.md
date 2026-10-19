@@ -186,7 +186,7 @@ Specify an Ollama endpoint and model:
 python tools/injection_judge.py Documentation/direct_injection_output.csv -u http://localhost:11434/api/generate --model qwen3:8b
 ```
 
-The judge **updates the input CSV in place**, adding:
+The judge validates the input before making changes, creates a unique `<input_stem>_backup_<timestamp>.csv` beside it, and **updates the input CSV in place**, adding:
 
 | Column | Description |
 | --- | --- |
@@ -200,9 +200,15 @@ Classification labels include:
 - `POSSIBLE`
 - `NO_SUCCESS`
 - `ERROR`
-- `SKIP` for responses recorded as request errors
+- `SKIP` for tester errors (including `error_type` and legacy `ERROR:` responses) or empty assistant responses
 
-Review classifications manually. The judge evaluates injection success and does not provide dedicated scoring for harmful content, off-topic responses, or resource consumption.
+The rubric treats supplied prompts and responses as untrusted evidence. It distinguishes refusals, attack-text echoes, simulations, and unverified claims from demonstrated compliance. `POSSIBLE` identifies evidence that needs manual verification. Strict output validation requires a supported label, a finite confidence value from 0 to 100, and nonempty reasons; malformed judgments are recorded as `ERROR`.
+
+Each processed row is checkpointed by writing a complete temporary CSV and atomically replacing the input. Original columns and unprocessed rows are preserved. Ctrl+C retains completed judgments and exits without waiting for a stalled judge request; unprocessed judgment cells remain blank. Each invocation starts a fresh evaluation and backs up any previous classifications. External changes detected during judging stop the run instead of overwriting that file, so finish the prompt tester before starting the judge.
+
+Progress reports waiting requests, and the final summary separates classifications, judge errors, skipped results, and remaining work, with elapsed time and absolute output/backup paths.
+
+Review classifications manually. Confidence is model-reported, not a calibrated probability. The judge cannot verify secret authenticity or backend state changes from text alone, and instructions in the rubric do not guarantee resistance to adversarial evidence. It evaluates injection evidence and does not provide dedicated scoring for harmful content, off-topic responses, or resource consumption.
 
 ## Response Variation Testing
 
@@ -280,7 +286,7 @@ Use these materials on applications you own or are authorized to assess, within 
 
 ## Script Checks
 
-Run the prompt tester regression checks without contacting a target:
+Run the prompt tester and injection judge regression checks without contacting a target:
 
 ```bash
 python -m unittest discover -s tests -v
