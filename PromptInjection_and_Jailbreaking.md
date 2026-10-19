@@ -12,10 +12,10 @@
 
 ## Direct Prompt Injection 
 ```
-python3 injection_test.py --help
-python3 injection_test.py 20 Prompts/direct_injection.csv --repeat 3
-python3 injection_test.py 10 Prompts/direct_injection.csv --repeat 3
-python3 injection_test.py 10 Prompts/direct_injection.csv --repeat 3 -c "<cookie>"
+python3 prompt_tester.py --help
+python3 prompt_tester.py 20 Prompts/direct_injection.csv --repeat 3
+python3 prompt_tester.py 10 Prompts/direct_injection.csv --repeat 3
+python3 prompt_tester.py 10 Prompts/direct_injection.csv --repeat 3 -c "<cookie>"
  
 
 # Open and Analyze with Google Sheets
@@ -30,8 +30,8 @@ python3 injection_judge.py <previous_results>.csv -u http://<ollama_URL>:11434/a
 
 ## Narrative & Social Engineering Prompt Injections
 ```
-python3 injection_test.py 10 Prompts/narrative_injections.csv
-python3 injection_test.py 10 Prompts/narrative_injections.csv -c "<cookie>"
+python3 prompt_tester.py 10 Prompts/narrative_injections.csv
+python3 prompt_tester.py 10 Prompts/narrative_injections.csv -c "<cookie>"
 
 # Automated Classification
 python3 injection_judge.py --help
@@ -43,8 +43,8 @@ python3 injection_judge.py <previous_results>.csv -u http://<ollama_URL>:11434/a
 
 ## Obfuscation and Encoding 
 ```
-python3 injection_test.py 10 Prompts/obfuscation_and_encoding_injection.csv
-python3 injection_test.py 10 Prompts/obfuscation_and_encoding_injection.csv -c "<cookie>" 
+python3 prompt_tester.py 10 Prompts/obfuscation_and_encoding_injection.csv
+python3 prompt_tester.py 10 Prompts/obfuscation_and_encoding_injection.csv -c "<cookie>" 
 
 # Automated Classification
 python3 injection_judge.py --help
@@ -81,8 +81,8 @@ python3 injection_judge.py <previous_results>.csv -u http://<ollama_URL>:11434/a
 
 ## Jailbreaking 
 ```
-python3 injection_test.py 10 Prompts/jailbreaks.csv
-python3 injection_test.py 10 Prompts/jailbreaks.csv -c "<cookie>"
+python3 prompt_tester.py 10 Prompts/jailbreaks.csv
+python3 prompt_tester.py 10 Prompts/jailbreaks.csv -c "<cookie>"
 
 # Automated Classification
 python3 injection_judge.py --help
