@@ -101,8 +101,10 @@ python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -c "session_
 | `-r`, `--repeat` | Requests per prompt; defaults to `1` |
 | `--check-for-phrase` | Check whether the row's `technique` value appears in the response, ignoring case |
 | `-c`, `--cookie` | Authentication cookie header |
+| `--timeout` | Read inactivity timeout in seconds; defaults to `120`. Connection timeout is capped at `10` seconds. |
+| `--max-workers` | Maximum simultaneous requests; defaults to `4` |
 
-Requests are scheduled in separate threads and can overlap. Each request sends `conversation_id: null`; multi-turn testing requires a separate workflow.
+Requests are paced at the configured rate, with at most four requests in flight by default. Use `--max-workers` to change that limit. Progress distinguishes started requests from completed requests and reports pending work while waiting. Each request sends `conversation_id: null`; multi-turn testing requires a separate workflow.
 
 ### CSV Format
 
@@ -138,6 +140,10 @@ Datasets are located in [`tools/prompts/`](tools/prompts/):
 RAG-specific CSV filenames referenced in the RAG guide are examples and are not currently included.
 
 ### Results
+
+Each completed response is written and flushed to CSV immediately, in completion order. Ctrl+C stops scheduling, saves completed results, and exits without waiting for outstanding requests. Requests already sent may continue processing on the server; their unfinished responses are not included. The summary distinguishes planned, started, completed, and unfinished requests. Status `0` means no HTTP response was received; the terminal and CSV include the underlying error.
+
+The request timeout applies to connection/read inactivity, not total wall-clock duration. For shorter waits, add `--timeout 30`; use Ctrl+C to stop the run.
 
 Without `-o`, the prompt tester saves results to `Documentation/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `Documentation/direct_injection_output.csv`. The destination directory is created automatically. Running the same dataset again replaces its previous default output; use `-o` to preserve separate runs or authentication states.
 
