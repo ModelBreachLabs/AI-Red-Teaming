@@ -1,5 +1,7 @@
 # Pentesting RAG 
 
+Run commands from the repository root (`AI-Red-Teaming/`). The RAG CSV files below are custom inputs; create them or replace the filenames with paths to your own datasets.
+
 ## Direct RAG Leakage Prompts 
 - All testing needs to be both authenticated and unauthenticated 
 ```
@@ -7,11 +9,11 @@
 curl http://localhost:5000/api/knowledge-base/stats 
 
 # Targeted RAG Testing
-python3 prompt_tester.py 10 targeted_rag.csv
-python3 prompt_tester.py 10 enhanced_targeted_rag.csv --repeat 2
+python3 tools/prompt_tester.py 10 targeted_rag.csv
+python3 tools/prompt_tester.py 10 enhanced_targeted_rag.csv --repeat 2
 
 # Authenticated
-python3 prompt_tester.py 10 enhanced_targeted_rag.csv --repeat 2 -c "<cookie>"
+python3 tools/prompt_tester.py 10 enhanced_targeted_rag.csv --repeat 2 -c "<cookie>"
 
 
 ```
@@ -21,8 +23,8 @@ python3 prompt_tester.py 10 enhanced_targeted_rag.csv --repeat 2 -c "<cookie>"
 ## RAG "FISHING"
 - Most of the time we will not have lab level knowledge of the AI and RAG being used by an application, "Fishing" is methodically pulling information via prompts
 ```
-python3 prompt_tester.py 10 --repeat 2 rag_fishing_prompts.csv
-python3 prompt_tester.py 10 --repeat 2 rag_fishing_prompts.csv -c "<cookie>"
+python3 tools/prompt_tester.py 10 --repeat 2 rag_fishing_prompts.csv
+python3 tools/prompt_tester.py 10 --repeat 2 rag_fishing_prompts.csv -c "<cookie>"
 ```
 - If there are any success or potential successes, modify the prompt and continue testing for further exploitation 
 
@@ -31,8 +33,8 @@ python3 prompt_tester.py 10 --repeat 2 rag_fishing_prompts.csv -c "<cookie>"
   <img width="1328" height="440" alt="image" src="https://github.com/user-attachments/assets/9e2e697d-5258-4224-9fc2-3a8b9bc5d752" />
 
 ```
-python3 prompt_tester.py 10 canary_rag.csv --check-for-phrase
-python3 prompt_tester.py 10 canary_rag.csv --check-for-phrase -c "<cookie>"
+python3 tools/prompt_tester.py 10 canary_rag.csv --check-for-phrase
+python3 tools/prompt_tester.py 10 canary_rag.csv --check-for-phrase -c "<cookie>"
 ```
 
 ## RAG Data Poisoning 

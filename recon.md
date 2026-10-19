@@ -1,5 +1,7 @@
 # AI Application Reconnaissance
 
+Run commands from the repository root (`AI-Red-Teaming/`).
+
 ## Recons Goals & Notes 
 - What is the model and it's characteristics
 - Is there RAG, and what can we find out about it?
@@ -65,24 +67,26 @@
   3. Scripting
      ```
      # Testing Determinism (Temp)
-     python3 temp_probe.py --help 
-     python3 temp_probe.py "HOWDY" 10 5
+     python3 tools/temp_prob.py --help 
+     python3 tools/temp_prob.py "HOWDY" 10 5
 
      # Rate Limiting
-     python3 rate_probe.py --help
-     rate_probe.py 50 120
-     rate_probe.py 200 150
-     rate_probe.py 100 100 -u http://example.com/api/chat
+     python3 tools/rate_probe.py --help
+     python3 tools/rate_probe.py 50 120
+     python3 tools/rate_probe.py 200 150
+     python3 tools/rate_probe.py 100 100 -u http://example.com/api/chat
      ```
 
 4. LLMmap
-   ```
-   https://github.com/pasquini-dario/LLMmap
-   # Update req.txt to contain accelerate==1.8.1
-   
+   - Run this setup in a separate terminal, starting from the playbook repository root. It creates a sibling LLMmap checkout.
+   - Course lab compatibility note: update LLMmap's `requirements.txt` to use `accelerate==1.8.1` if required by your lab environment.
+   ```bash
+   cd ..
+   git clone https://github.com/pasquini-dario/LLMmap.git
+   cd LLMmap
    python3 -m venv venv
-   source/bin/activate
-   pip -r install requirments.txt
+   source venv/bin/activate
+   python -m pip install -r requirements.txt
 
    python main_interactive.py --inference_model_path ./data/pretrained_models/default
 

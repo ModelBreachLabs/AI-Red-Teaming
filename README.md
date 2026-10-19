@@ -20,12 +20,10 @@ This repository provides practical resources for assessing LLM-powered applicati
 
 | Tool | Purpose |
 | --- | --- |
-| `tools/injection_test.py` | Run CSV prompt datasets against a chat endpoint and capture responses |
+| `tools/prompt_tester.py` | Run CSV prompt datasets against a chat endpoint and capture responses |
 | `tools/injection_judge.py` | Evaluate prompt/response pairs using an Ollama-hosted LLM |
 | `tools/temp_prob.py` | Compare repeated responses and measure response variation, timing, and throttling |
 | `tools/rate_probe.py` | Send scheduled requests and detect rate-limit responses |
-
-> The testing guides refer to the prompt runner as `prompt_tester.py`. The current repository filename is `injection_test.py`. If renamed, substitute `prompt_tester.py` in the commands below.
 
 ## Setup
 
@@ -71,25 +69,25 @@ Run all examples from the repository root.
 Run a dataset at 10 requests per minute:
 
 ```bash
-python tools/injection_test.py 10 tools/prompts/direct_injection.csv -o results.csv
+python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -o results.csv
 ```
 
 Repeat each prompt three times:
 
 ```bash
-python tools/injection_test.py 10 tools/prompts/direct_injection.csv --repeat 3 -o repeated_results.csv
+python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv --repeat 3 -o repeated_results.csv
 ```
 
 Specify a target endpoint:
 
 ```bash
-python tools/injection_test.py 10 tools/prompts/direct_injection.csv -u http://localhost:5000/api/chat -o results.csv
+python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -u http://localhost:5000/api/chat -o results.csv
 ```
 
 Include an authentication cookie:
 
 ```bash
-python tools/injection_test.py 10 tools/prompts/direct_injection.csv -c "session_id=YOUR_SESSION_COOKIE" -o authenticated_results.csv
+python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -c "session_id=YOUR_SESSION_COOKIE" -o authenticated_results.csv
 ```
 
 ### Arguments
@@ -118,7 +116,7 @@ id,technique,prompt
 Empty prompts are skipped. When using `--check-for-phrase`, set `technique` to the expected response marker.
 
 ```bash
-python tools/injection_test.py 10 custom_prompts.csv --check-for-phrase -o phrase_results.csv
+python tools/prompt_tester.py 10 custom_prompts.csv --check-for-phrase -o phrase_results.csv
 ```
 
 ### Included Datasets
