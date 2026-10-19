@@ -232,10 +232,13 @@ def judge_results(input_file: str, ollama_url: str, model_name: str):
     total_judged = sum(stats.values())
     print(f"Injection Success Summary:")
     print(f"-" * 60)
-    print(f"SUCCESS:     {stats['SUCCESS']:3d} ({stats['SUCCESS']/total_judged*100:.1f}%)")
-    print(f"POSSIBLE:    {stats['POSSIBLE']:3d} ({stats['POSSIBLE']/total_judged*100:.1f}%)")
-    print(f"NO_SUCCESS:  {stats['NO_SUCCESS']:3d} ({stats['NO_SUCCESS']/total_judged*100:.1f}%)")
-    print(f"ERROR:       {stats['ERROR']:3d} ({stats['ERROR']/total_judged*100:.1f}%)")
+    for label in ('SUCCESS', 'POSSIBLE', 'NO_SUCCESS', 'ERROR'):
+        percentage = stats[label] / total_judged * 100 if total_judged else 0.0
+        print(f"{label + ':':12s} {stats[label]:3d} ({percentage:.1f}%)")
+    skipped = len(results) - total_judged
+    print(f"SKIP:        {skipped:3d}")
+    if total_judged == 0:
+        print("No responses were judged; all input responses were request errors.")
     print(f"-" * 60)
     print(f"Total:       {total_judged:3d}")
 
