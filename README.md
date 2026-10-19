@@ -22,7 +22,7 @@ This repository provides practical resources for assessing LLM-powered applicati
 | --- | --- |
 | `tools/prompt_tester.py` | Run CSV prompt datasets against a chat endpoint and capture responses |
 | `tools/injection_judge.py` | Evaluate prompt/response pairs using an Ollama-hosted LLM |
-| `tools/temp_prob.py` | Compare repeated responses and measure response variation, timing, and throttling |
+| `tools/temp_probe.py` | Compare repeated responses and measure response variation, timing, and throttling |
 | `tools/rate_probe.py` | Send scheduled requests and detect rate-limit responses |
 
 ## Setup
@@ -196,19 +196,19 @@ Review classifications manually. The judge evaluates injection success and does 
 Send the same message 10 times at 5 requests per minute:
 
 ```bash
-python tools/temp_prob.py "What is your return policy?" 10 5 -o probe_results.csv
+python tools/temp_probe.py "What is your return policy?" 10 5 -o probe_results.csv
 ```
 
 Use concurrent scheduling:
 
 ```bash
-python tools/temp_prob.py "Hello" 10 10 --concurrent -o concurrent_results.csv
+python tools/temp_probe.py "Hello" 10 10 --concurrent -o concurrent_results.csv
 ```
 
 Specify a target endpoint:
 
 ```bash
-python tools/temp_prob.py "Hello" 10 5 -u http://localhost:5000/api/chat -o probe_results.csv
+python tools/temp_probe.py "Hello" 10 5 -u http://localhost:5000/api/chat -o probe_results.csv
 ```
 
 The tool reports response variation, timing, basic text-length statistics, and rate-limit observations. Per-request results are saved to CSV.

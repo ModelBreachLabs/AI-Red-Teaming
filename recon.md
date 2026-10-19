@@ -67,8 +67,8 @@ Run commands from the repository root (`AI-Red-Teaming/`).
   3. Scripting
      ```
      # Testing Determinism (Temp)
-     python3 tools/temp_prob.py --help 
-     python3 tools/temp_prob.py "HOWDY" 10 5
+     python3 tools/temp_probe.py --help 
+     python3 tools/temp_probe.py "HOWDY" 10 5
 
      # Rate Limiting
      python3 tools/rate_probe.py --help
