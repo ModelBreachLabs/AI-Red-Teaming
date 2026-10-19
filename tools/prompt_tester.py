@@ -300,7 +300,7 @@ Input file format:
     parser.add_argument('-u', '--url', type=str, default='http://localhost:5000/api/chat',
                         help='Chat API endpoint URL (default: http://localhost:5000/api/chat)')
     parser.add_argument('-o', '--output', type=str, default=None,
-                        help='Output CSV file (default: prompt_results_<timestamp>.csv)')
+                        help='Output CSV path (default: repository-root Documentation/<dataset_name>_output.csv)')
     parser.add_argument('-r', '--repeat', type=int, default=1,
                         help='Number of times to repeat each prompt (default: 1)')
     parser.add_argument('--check-for-phrase', action='store_true',
@@ -320,10 +320,10 @@ Input file format:
     if not Path(args.input_file).exists():
         parser.error(f"Input file not found: {args.input_file}")
     
-    # Generate default output filename if not provided
+    # Anchor default results to the repository, independent of the working directory.
     if args.output is None:
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        args.output = f'prompt_results_{timestamp}.csv'
+        documentation_dir = Path(__file__).resolve().parent.parent / 'Documentation'
+        args.output = str(documentation_dir / f'{Path(args.input_file).stem}_output.csv')
     
     try:
         # Read prompts from file
@@ -334,6 +334,9 @@ Input file format:
         
         print(f"Loaded {len(prompts)} prompts from {args.input_file}\n")
         
+        # Create the destination before sending any requests.
+        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+
         # Run the test
         test_prompts(args.url, prompts, args.rate, args.output, args.repeat, args.check_for_phrase, args.cookie)
         

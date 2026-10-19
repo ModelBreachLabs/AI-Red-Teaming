@@ -69,7 +69,7 @@ Run all examples from the repository root.
 Run a dataset at 10 requests per minute:
 
 ```bash
-python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -o results.csv
+python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv
 ```
 
 Repeat each prompt three times:
@@ -81,7 +81,7 @@ python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv --repeat 3 -
 Specify a target endpoint:
 
 ```bash
-python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -u http://localhost:5000/api/chat -o results.csv
+python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -u http://localhost:5000/api/chat
 ```
 
 Include an authentication cookie:
@@ -97,7 +97,7 @@ python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -c "session_
 | `rate` | Scheduled request rate in requests per minute |
 | `input_file` | Input CSV path |
 | `-u`, `--url` | Target endpoint; defaults to `http://localhost:5000/api/chat` |
-| `-o`, `--output` | Output CSV path; defaults to a timestamped filename |
+| `-o`, `--output` | Output CSV path; defaults to `Documentation/<dataset_name>_output.csv` at the repository root |
 | `-r`, `--repeat` | Requests per prompt; defaults to `1` |
 | `--check-for-phrase` | Check whether the row's `technique` value appears in the response, ignoring case |
 | `-c`, `--cookie` | Authentication cookie header |
@@ -139,6 +139,8 @@ RAG-specific CSV filenames referenced in the RAG guide are examples and are not 
 
 ### Results
 
+Without `-o`, the prompt tester saves results to `Documentation/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `Documentation/direct_injection_output.csv`. The destination directory is created automatically. Running the same dataset again replaces its previous default output; use `-o` to preserve separate runs or authentication states.
+
 The prompt runner exports:
 
 - Prompt ID and technique
@@ -164,13 +166,13 @@ ollama pull qwen3:8b
 With Ollama running, evaluate a results file:
 
 ```bash
-python tools/injection_judge.py results.csv
+python tools/injection_judge.py Documentation/direct_injection_output.csv
 ```
 
 Specify an Ollama endpoint and model:
 
 ```bash
-python tools/injection_judge.py results.csv -u http://localhost:11434/api/generate --model qwen3:8b
+python tools/injection_judge.py Documentation/direct_injection_output.csv -u http://localhost:11434/api/generate --model qwen3:8b
 ```
 
 The judge **updates the input CSV in place**, adding:
