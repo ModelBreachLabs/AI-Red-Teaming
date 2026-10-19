@@ -6,10 +6,11 @@ Reads prompts from a file and sends them to the chat endpoint
 
 import argparse
 import csv
-import json
 import math
 import queue
 import requests
+import shutil
+from collections import Counter
 import time
 import threading
 from datetime import datetime
@@ -50,44 +51,113 @@ def send_chat_message(url: str, message: str, cookie: str = None, timeout: float
         # Try to parse JSON response
         try:
             data = response.json()
-        except json.JSONDecodeError:
-            data = {"error": "Invalid JSON response", "raw": response.text[:200]}
+        except ValueError:
+            data = {"error": "Endpoint returned invalid JSON", "_error_type": "INVALID_JSON"}
+        if not isinstance(data, dict):
+            data = {"error": "Expected a JSON object from the chat endpoint", "_error_type": "RESPONSE_FORMAT"}
         
         return (response.ok, data, status_code)
     
     except requests.exceptions.Timeout:
-        return (False, {"error": "Request timeout"}, 0)
+        return (False, {"error": "Connection/read inactivity timeout", "_error_type": "TIMEOUT"}, 0)
+    except requests.exceptions.SSLError:
+        return (False, {"error": "TLS certificate or handshake failed", "_error_type": "TLS_ERROR"}, 0)
     except requests.exceptions.ConnectionError:
-        return (False, {"error": "Connection error"}, 0)
+        return (False, {"error": "Could not connect to the endpoint, or the connection was lost", "_error_type": "CONNECTION_ERROR"}, 0)
     except Exception as e:
-        return (False, {"error": str(e)}, 0)
+        return (False, {"error": str(e), "_error_type": "REQUEST_ERROR"}, 0)
 
 
 def read_prompts(input_file: str) -> list[dict]:
-    """
-    Read prompts from CSV file with id, technique, and prompt columns
-    
-    Args:
-        input_file: Path to CSV file containing prompts
-        
-    Returns:
-        List of dictionaries with 'id', 'technique', and 'prompt' keys
-    """
+    """Validate the full CSV before requests or output-file changes."""
     prompts = []
-    with open(input_file, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if row.get('prompt', '').strip():  # Skip rows with empty prompts
-                prompts.append({
-                    'id': row.get('id', ''),
-                    'technique': row.get('technique', ''),
-                    'prompt': row['prompt'].strip()
-                })
+    warnings = []
+    ids = set()
+    texts = set()
+    with open(input_file, 'r', newline='', encoding='utf-8-sig') as source:
+        reader = csv.DictReader(source, strict=True)
+        try:
+            headers = reader.fieldnames
+            required = {'id', 'technique', 'prompt'}
+            if not headers or not required.issubset(headers):
+                missing = required - set(headers or [])
+                raise ValueError(f"Dataset missing required columns: {', '.join(sorted(missing))}")
+            if len(headers) != len(set(headers)):
+                raise ValueError("Dataset contains duplicate column headers")
+            for row in reader:
+                line = reader.line_num
+                if None in row or any(value is None for value in row.values()):
+                    raise ValueError(f"Dataset line {line}: column count does not match header")
+                prompt = row['prompt'].strip()
+                if not prompt:
+                    warnings.append(f"line {line}: empty prompt skipped")
+                    continue
+                prompt_id = row['id']
+                if prompt_id in ids:
+                    warnings.append(f"line {line}: duplicate ID {prompt_id!r}; retained")
+                if prompt in texts:
+                    warnings.append(f"line {line}: duplicate prompt; retained")
+                if not prompt_id.strip() or not row['technique'].strip():
+                    warnings.append(f"line {line}: blank ID or technique")
+                ids.add(prompt_id)
+                texts.add(prompt)
+                prompts.append({'id': prompt_id, 'technique': row['technique'], 'prompt': prompt})
+        except csv.Error as exc:
+            raise ValueError(f"Invalid CSV near line {reader.line_num}: {exc}") from exc
+    if not prompts:
+        raise ValueError("Dataset contains no nonempty prompts")
+    for warning in warnings:
+        print(f"Dataset warning: {warning}")
     return prompts
+
+
+def backup_output(output_path: Path):
+    """Copy existing results before replacing them; fail safely if backup fails."""
+    if not output_path.exists():
+        return None
+    stamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    candidate = output_path.with_name(f"{output_path.stem}_backup_{stamp}{output_path.suffix}")
+    suffix = 1
+    while True:
+        try:
+            backup = candidate.open('xb')
+            break
+        except FileExistsError:
+            candidate = output_path.with_name(
+                f"{output_path.stem}_backup_{stamp}_{suffix}{output_path.suffix}")
+            suffix += 1
+    with backup, output_path.open('rb') as source:
+        shutil.copyfileobj(source, backup)
+    return candidate
+
+
+def classify_error(http_ok, data, status_code):
+    """Categorize failures without guessing whether credentials have expired."""
+    error = str(data.get('error') or '')
+    if status_code == 401:
+        return 'AUTHENTICATION', error or 'HTTP 401: authentication required or rejected'
+    if status_code == 403:
+        return 'ACCESS_DENIED', error or 'HTTP 403: access denied'
+    if status_code == 429 or 'rate limit' in error.lower() or 'too many requests' in error.lower():
+        return 'RATE_LIMIT', error or 'HTTP 429: too many requests'
+    if status_code >= 400:
+        return 'HTTP_ERROR', error or f'HTTP {status_code}'
+    if data.get('_error_type'):
+        return data['_error_type'], error
+    if not http_ok:
+        return 'REQUEST_ERROR', error or 'Request failed without an HTTP response'
+    if 'success' not in data:
+        return 'RESPONSE_FORMAT', error or "JSON response is missing the 'success' field"
+    if not data.get('success'):
+        return 'APPLICATION_ERROR', error or 'Application reported success=false'
+    if not isinstance(data.get('response'), str):
+        return 'RESPONSE_FORMAT', "Successful JSON response must contain a text 'response' field"
+    return '', ''
 
 
 def test_prompts(url: str, prompts: list[dict], requests_per_minute: float, output_file: str, repeat: int = 1, check_for_phrase: bool = False, cookie: str = None, timeout: float = 120, max_workers: int = 4):
     """Run rate-paced requests, saving each completed result immediately."""
+    output_file = str(Path(output_file).expanduser().resolve())
     delay = 60.0 / requests_per_minute
     jobs = [(prompt, number) for prompt in prompts for number in range(1, repeat + 1)]
     completions = queue.Queue()
@@ -120,11 +190,14 @@ def test_prompts(url: str, prompts: list[dict], requests_per_minute: float, outp
                              (time.monotonic() - started) * 1000, outcome))
 
     fieldnames = ['id', 'technique', 'repeat_number', 'request_number',
-                  'response_time_ms', 'prompt', 'response', 'status_code', 'timestamp']
+                  'response_time_ms', 'prompt', 'response', 'status_code', 'timestamp', 'error_type']
     if check_for_phrase:
         fieldnames.append('phrase_check')
 
     Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+    backup = backup_output(Path(output_file))
+    if backup:
+        print(f"Previous results backed up to {backup}")
     with open(output_file, 'w', newline='', encoding='utf-8') as output:
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
@@ -136,8 +209,9 @@ def test_prompts(url: str, prompts: list[dict], requests_per_minute: float, outp
             active -= 1
             http_ok, data, status_code = outcome
             if not isinstance(data, dict):
-                data = {'error': 'Expected a JSON object from the chat endpoint'}
-            success = http_ok and bool(data.get('success'))
+                data = {'error': 'Expected a JSON object from the chat endpoint', '_error_type': 'RESPONSE_FORMAT'}
+            error_type, error = classify_error(http_ok, data, status_code)
+            success = not error_type
             phrase_check = 'N/A'
             if success:
                 response_text = str(data.get('response', ''))
@@ -147,15 +221,14 @@ def test_prompts(url: str, prompts: list[dict], requests_per_minute: float, outp
                     phrase_check = ('SUCCESS' if prompt_data['technique'].lower()
                                     in response_text.lower() else 'NO_SUCCESS')
             else:
-                error = str(data.get('error') or 'Unknown error')
                 response_text = f"ERROR: {error}"
-                message = f"Error (status: {status_code}): {error}"
+                message = f"{error_type} (status: {status_code}): {error}"
             row = {
                 'id': prompt_data['id'], 'technique': prompt_data['technique'],
                 'repeat_number': repeat_num, 'request_number': request_num,
                 'response_time_ms': elapsed, 'prompt': prompt_data['prompt'],
                 'response': response_text, 'status_code': status_code,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(), 'error_type': error_type
             }
             if check_for_phrase:
                 row['phrase_check'] = phrase_check
@@ -215,12 +288,24 @@ def test_prompts(url: str, prompts: list[dict], requests_per_minute: float, outp
     print(f"Completed and saved:    {len(results)}")
     print(f"Successful responses:   {successful_requests}")
     print(f"Failed responses:       {len(results) - successful_requests}")
+    print(f"Not started:            {len(jobs) - launched}")
+    print(f"Started, unfinished:    {launched - len(results)}")
     print(f"Not completed:          {len(jobs) - len(results)}")
     print(f"Total time:             {total_time:.2f}s")
+    timings = [row['response_time_ms'] for row in results]
+    if timings:
+        print(f"Response time (all):    avg={sum(timings)/len(timings):.0f}ms, "
+              f"min={min(timings):.0f}ms, max={max(timings):.0f}ms")
+    print(f"Completed rate:         {len(results) / total_time * 60:.2f} req/min")
+    errors = Counter(row['error_type'] for row in results if row['error_type'])
+    for category, count in sorted(errors.items()):
+        print(f"  {category}: {count}")
     if check_for_phrase:
         checked = [row for row in results if row['phrase_check'] != 'N/A']
         matches = sum(row['phrase_check'] == 'SUCCESS' for row in checked)
         print(f"Phrase matches:         {matches}/{len(checked)} checked")
+    if backup:
+        print(f"Previous results:       {backup}")
     print(f"{'Partial results' if interrupted else 'Results'} saved to {output_file}")
     return not interrupted
 
@@ -288,7 +373,7 @@ Input file format:
         parser.error("max-workers must be positive")
 
     # Check if input file exists
-    if not Path(args.input_file).exists():
+    if not Path(args.input_file).is_file():
         parser.error(f"Input file not found: {args.input_file}")
     
     # Anchor default results to the repository, independent of the working directory.
@@ -296,18 +381,15 @@ Input file format:
         documentation_dir = Path(__file__).resolve().parent.parent / 'Documentation'
         args.output = str(documentation_dir / f'{Path(args.input_file).stem}_output.csv')
     
+    if Path(args.input_file).resolve() == Path(args.output).expanduser().resolve():
+        parser.error("output path must not be the input dataset")
+
     try:
         # Read prompts from file
         prompts = read_prompts(args.input_file)
-        if not prompts:
-            print("Error: No prompts found in input file")
-            return
         
         print(f"Loaded {len(prompts)} prompts from {args.input_file}\n")
         
-        # Create the destination before sending any requests.
-        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-
         # Run the test
         completed = test_prompts(args.url, prompts, args.rate, args.output, args.repeat,
                                  args.check_for_phrase, args.cookie, args.timeout, args.max_workers)
@@ -316,11 +398,16 @@ Input file format:
         
     except KeyboardInterrupt:
         print("\n\nTest interrupted by user")
+        raise SystemExit(130)
+    except (OSError, UnicodeError, ValueError) as exc:
+        parser.exit(1, f"Error: {exc}\n")
     except Exception as e:
         print(f"\nError: {e}")
         import traceback
         traceback.print_exc()
+        raise SystemExit(1)
 
 
 if __name__ == '__main__':
     main()
+

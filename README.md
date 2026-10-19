@@ -145,7 +145,11 @@ Each completed response is written and flushed to CSV immediately, in completion
 
 The request timeout applies to connection/read inactivity, not total wall-clock duration. For shorter waits, add `--timeout 30`; use Ctrl+C to stop the run.
 
-Without `-o`, the prompt tester saves results to `Documentation/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `Documentation/direct_injection_output.csv`. The destination directory is created automatically. Running the same dataset again replaces its previous default output; use `-o` to preserve separate runs or authentication states.
+Without `-o`, the prompt tester saves results to `Documentation/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `Documentation/direct_injection_output.csv`. The destination directory is created automatically. Before replacing an existing output, the tester creates a unique backup beside it named `<output_stem>_backup_<timestamp>.csv`. If backup fails, the run stops before sending requests. Use `-o` to select a separate run or authentication-state filename.
+
+Before a run, the tester validates required `id`, `technique`, and `prompt` headers and CSV structure. Malformed rows or datasets with no usable prompts stop the run before requests or output replacement. Empty prompts are skipped with a warning; duplicate IDs/prompts are reported and retained. UTF-8 BOMs and quoted multiline prompts are supported.
+
+The final summary reports planned, started, completed, successful, failed, not-started, and unfinished requests; average/minimum/maximum response time across completed requests; completed request rate; error counts by category; phrase matches when enabled; and absolute output and backup paths.
 
 The prompt runner exports:
 
@@ -154,6 +158,7 @@ The prompt runner exports:
 - Response time
 - Full prompt and response
 - HTTP status code
+- Error category (`error_type`; empty for successful responses)
 - Timestamp
 - Phrase-check result, when enabled
 
@@ -272,3 +277,11 @@ Cookie authentication is available in the prompt runner. The response variation 
 ## Authorized Use
 
 Use these materials on applications you own or are authorized to assess, within the agreed testing scope and request limits.
+
+## Script Checks
+
+Run the prompt tester regression checks without contacting a target:
+
+```bash
+python -m unittest discover -s tests -v
+```

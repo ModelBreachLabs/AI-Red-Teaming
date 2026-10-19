@@ -2,7 +2,7 @@
 
 Run commands from the repository root (`AI-Red-Teaming/`). The baseline datasets are included under `tools/prompts/`. `enhanced_targeted_rag.csv` is created during an engagement after reviewing initial results; it is not a bundled dataset.
 
-Results default to `Documentation/<dataset_name>_output.csv`. Running the same dataset again replaces that output. Use `-o` with a separate filename to preserve different runs or authentication states.
+Results default to `Documentation/<dataset_name>_output.csv`. Before replacing an existing output, the tester creates a timestamped backup beside it. Use `-o` with a separate filename to preserve different runs or authentication states.
 
 ## Direct RAG Leakage Prompts 
 - All testing needs to be both authenticated and unauthenticated 
