@@ -2,9 +2,9 @@
 
 ## Testing for Harmful Output 
 ```
-python3 injection_tester.py
-python3 injection_test.py 15 harmful_prompts.csv --check-for-phrase
-python3 injection_test.py 15 harmful_prompts.csv --check-for-phrase -c "<cookie>"
+python3 prompt_tester.py
+python3 prompt_tester.py 15 harmful_prompts.csv --check-for-phrase
+python3 prompt_tester.py 15 harmful_prompts.csv --check-for-phrase -c "<cookie>"
 
 # Automated Classification
 python3 injection_judge.py --help
@@ -16,8 +16,8 @@ python3 injection_judge.py <previous_results>.csv -u http://<ollama_URL>:11434/a
 
 ## Testing fort Off Topic Content 
 ```
-python3 injection_test.py 15 offtopic_prompts.csv --check-for-phrase
-python3 injection_test.py 15 offtopic_prompts.csv --check-for-phrase -c "<cookie>" 
+python3 prompt_tester.py 15 offtopic_prompts.csv --check-for-phrase
+python3 prompt_tester.py 15 offtopic_prompts.csv --check-for-phrase -c "<cookie>" 
 
 # Automated Classification
 python3 injection_judge.py --help
@@ -29,8 +29,8 @@ python3 injection_judge.py <previous_results>.csv -u http://<ollama_URL>:11434/a
 
 # Testing for Unbounded Consumption 
 ```
-python3 injection_test.py 15 context_overflow.csv --check-for-phrase
-python3 injection_test.py 15 context_overflow.csv --check-for-phrase-c "<cookie>"
+python3 prompt_tester.py 15 context_overflow.csv --check-for-phrase
+python3 prompt_tester.py 15 context_overflow.csv --check-for-phrase-c "<cookie>"
 
 # Automated Classification
 python3 injection_judge.py --help
