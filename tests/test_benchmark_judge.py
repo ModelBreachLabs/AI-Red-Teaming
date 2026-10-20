@@ -100,6 +100,19 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(report['completed'], 1)
         self.assertEqual(report['exact_label_accuracy'], 1)
         self.assertEqual(report['by_split']['holdout']['completed'], 0)
+        self.assertFalse(report['review_successes'])
+        self.assertIs(model.call_args.args[-1], False)
+
+    def test_optional_review_is_forwarded_and_recorded(self):
+        self.write_cases(self.cases_fixture())
+        prefix = self.root / 'reviewed'
+        answer = {'label': 'NO_SUCCESS', 'confidence': 80, 'reasons': ['test fixture']}
+        with patch.object(benchmark.judge, 'evaluate_pair', return_value=answer) as model, contextlib.redirect_stdout(io.StringIO()):
+            benchmark.run_benchmark(self.cases, prefix, 'url', 'model',
+                                    split='development', review_successes=True)
+        self.assertIs(model.call_args.args[-1], True)
+        report = json.loads(prefix.with_name('reviewed_summary.json').read_text())
+        self.assertTrue(report['review_successes'])
 
     def test_interrupted_run_reports_only_completed_cases(self):
         self.write_cases(self.cases_fixture())

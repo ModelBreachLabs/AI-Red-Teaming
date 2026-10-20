@@ -30,7 +30,7 @@ python3 tools/benchmark_judge.py run benchmarks/candidates.csv --split developme
 
 Only the selected split is sent to the model. Expected labels, expected reasons, and split assignments are never sent. An unlabeled selection stops before contacting Ollama. Omit `--split` to evaluate all labeled cases; use `--split holdout` only when ready for the held-out assessment.
 
-The runner uses the same evidence validation and independent success review as `injection_judge.py`. It also accepts `--reference-file`, `--timeout`, `--max-tokens`, `--think`, and `--model-default-thinking`. The default output budget is 768 tokens and thinking is disabled. Actual reference data must be supplied separately after verification.
+The runner uses the same evidence validation and single-assessment default as `injection_judge.py`. Add `--review-successes` to enable the optional second assessment. The report records the selected review mode; use matching modes when comparing runs. It also accepts `--reference-file`, `--timeout`, `--max-tokens`, `--think`, and `--model-default-thinking`. The default output budget is 768 tokens and thinking is disabled. This is a ceiling, not a target length; explanations are requested to be brief. Actual reference data must be supplied separately after verification.
 
 Outputs for the command above:
 

@@ -92,7 +92,7 @@ def score_cases(records):
 
 
 def run_benchmark(cases_file, output_prefix, url, model, split=None, think=False,
-                  timeout=90, max_tokens=768, reference_file=None):
+                  timeout=90, max_tokens=768, reference_file=None, review_successes=False):
     cases = load_cases(cases_file, split)
     reference = judge.load_reference(reference_file)
     prefix = Path(output_prefix).expanduser().resolve()
@@ -120,7 +120,7 @@ def run_benchmark(cases_file, output_prefix, url, model, split=None, think=False
                 call_started = time.monotonic()
                 # Expected labels, split, and expected reasons are NEVER sent to the model.
                 result = judge.evaluate_pair(case['prompt'], case['response'], url, model,
-                                              think, timeout, max_tokens, reference)
+                                              think, timeout, max_tokens, reference, review_successes)
                 record = {'case_id': case['case_id'], 'split': case['split'],
                           'expected_label': case['expected_label'], 'predicted_label': result['label'],
                           'judge_seconds': time.monotonic() - call_started,
@@ -140,6 +140,7 @@ def run_benchmark(cases_file, output_prefix, url, model, split=None, think=False
     report = score_cases(records)
     report.update(planned=len(cases), interrupted=interrupted, elapsed_seconds=time.monotonic() - started,
                   model=model, endpoint=url, split=split or 'all', think=think, max_tokens=max_tokens,
+                  review_successes=review_successes,
                   rubric_hash=hashlib.sha256((judge.RUBRIC + judge.REVIEW_RUBRIC).encode()).hexdigest(),
                   reference_hash=hashlib.sha256(json.dumps(reference, sort_keys=True).encode()).hexdigest())
     report['by_split'] = {name: score_cases([row for row in records if row['split'] == name])
@@ -171,6 +172,8 @@ def main():
     run.add_argument('--timeout', type=float, default=90)
     run.add_argument('--max-tokens', type=int, default=768)
     run.add_argument('--reference-file')
+    run.add_argument('--review-successes', action='store_true',
+                     help='Use the optional second assessment for proposed successes')
     args = parser.parse_args()
     try:
         if args.command == 'prepare':
@@ -179,7 +182,8 @@ def main():
             if not math.isfinite(args.timeout) or args.timeout <= 0 or args.max_tokens <= 0:
                 raise ValueError('timeout and max-tokens must be positive finite values')
             if not run_benchmark(args.cases_file, args.output_prefix, args.url, args.model,
-                                  args.split, args.think, args.timeout, args.max_tokens, args.reference_file):
+                                  args.split, args.think, args.timeout, args.max_tokens, args.reference_file,
+                                  args.review_successes):
                 raise SystemExit(130)
     except KeyboardInterrupt:
         raise SystemExit(130)

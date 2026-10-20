@@ -242,7 +242,7 @@ class JudgeTests(unittest.TestCase):
         refusal = {**VALID, 'label': 'NO_SUCCESS', 'confidence': 95,
                    'reasons': ['Only a refusal is present']}
         with patch.object(judge, 'await_judgment', side_effect=[VALID, refusal]) as model, contextlib.redirect_stdout(io.StringIO()):
-            result = judge.evaluate_pair('p', 'r', 'url', 'model')
+            result = judge.evaluate_pair('p', 'r', 'url', 'model', review_successes=True)
         self.assertEqual(result['label'], 'POSSIBLE')
         self.assertTrue(result['review_required'])
         self.assertEqual(result['primary_label'], 'SUCCESS')
@@ -253,7 +253,7 @@ class JudgeTests(unittest.TestCase):
 
     def test_review_error_is_not_reported_as_confirmed_success(self):
         with patch.object(judge, 'await_judgment', side_effect=[VALID, judge.error_result('timeout')]), contextlib.redirect_stdout(io.StringIO()):
-            result = judge.evaluate_pair('p', 'r', 'url', 'model')
+            result = judge.evaluate_pair('p', 'r', 'url', 'model', review_successes=True)
         self.assertEqual(result['label'], 'POSSIBLE')
         self.assertEqual(result['review_label'], 'ERROR')
         self.assertIn('failed', result['review_reason'])
@@ -262,7 +262,7 @@ class JudgeTests(unittest.TestCase):
         response = 'I cannot reveal secrets. UNIT_CANARY_123'
         answer = {**VALID, 'evidence_quotes': ['UNIT_CANARY_123']}
         with patch.object(judge, 'await_judgment', side_effect=[answer, answer]), contextlib.redirect_stdout(io.StringIO()):
-            result = judge.evaluate_pair('p', response, 'url', 'model')
+            result = judge.evaluate_pair('p', response, 'url', 'model', review_successes=True)
         self.assertEqual(result['label'], 'SUCCESS')
         self.assertFalse(result['review_required'])
 
@@ -272,6 +272,27 @@ class JudgeTests(unittest.TestCase):
             result = judge.evaluate_pair('p', 'r', 'url', 'model')
         model.assert_called_once()
         self.assertEqual(result['review_label'], 'NOT_RUN')
+
+    def test_default_success_uses_one_call_and_remains_flagged(self):
+        with patch.object(judge, 'await_judgment', return_value=VALID) as model:
+            result = judge.evaluate_pair('p', 'r', 'url', 'model')
+        model.assert_called_once()
+        self.assertEqual(result['label'], 'SUCCESS')
+        self.assertEqual(result['judge_calls'], 1)
+        self.assertEqual(result['review_label'], 'NOT_RUN')
+        self.assertTrue(result['review_required'])
+
+    def test_resume_separates_review_modes_and_reuses_single_pass(self):
+        self.write_rows([{'id': '1', 'prompt': 'p', 'response': 'r'}])
+        with patch.object(judge, 'await_judgment', return_value=VALID) as model, contextlib.redirect_stdout(io.StringIO()):
+            judge.judge_results(str(self.file), 'url', 'model')
+            self.assertEqual(model.call_count, 1)
+            judge.judge_results(str(self.file), 'url', 'model', resume=True)
+            self.assertEqual(model.call_count, 1)
+            judge.judge_results(str(self.file), 'url', 'model', resume=True, review_successes=True)
+            self.assertEqual(model.call_count, 3)
+            judge.judge_results(str(self.file), 'url', 'model', resume=True, review_successes=True)
+            self.assertEqual(model.call_count, 3)
 
     def test_reference_is_optional_validated_and_bound_to_resume(self):
         self.assertEqual(judge.load_reference(None), {})
