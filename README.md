@@ -238,10 +238,6 @@ The normal command works without a reference file. After collecting verified con
 
 Literal comparisons distinguish canaries already present in the attack from canaries appearing only in the response, and check for the complete reference system prompt. These comparisons are assessment context, not proof of retrieval, authenticity, or backend execution. Treat reference files as sensitive assessment material and keep them out of public commits.
 
-### Judge Benchmarking
-
-See [benchmarks/README.md](benchmarks/README.md) for candidate preparation, manual labels, development/holdout splits, and scoring. The runner uses the same judge pipeline and never sends expected labels or labeling reasons to the model. No ground-truth dataset or measured accuracy is provided yet.
-
 ## Response Variation Testing
 
 Send the same message 10 times at 5 requests per minute:
@@ -315,12 +311,4 @@ Cookie authentication is available in the prompt runner. The response variation 
 ## Authorized Use
 
 Use these materials on applications you own or are authorized to assess, within the agreed testing scope and request limits.
-
-## Script Checks
-
-Run the prompt tester, injection judge, and benchmark regression checks without contacting a target:
-
-```bash
-python -m unittest discover -s tests -v
-```
 
