@@ -98,7 +98,7 @@ python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -c "session_
 | `rate` | Scheduled request rate in requests per minute |
 | `input_file` | Input CSV path |
 | `-u`, `--url` | Target endpoint; defaults to `http://localhost:5000/api/chat` |
-| `-o`, `--output` | Output CSV path; defaults to `Prompt Results/<dataset_name>_output.csv` at the repository root |
+| `-o`, `--output` | Output CSV path; defaults to `prompt_results/<dataset_name>_output.csv` at the repository root |
 | `-r`, `--repeat` | Requests per prompt; defaults to `1` |
 | `--check-for-phrase` | Check whether the row's `technique` value appears in the response, ignoring case |
 | `-c`, `--cookie` | Authentication cookie header |
@@ -146,7 +146,7 @@ Each completed response is written and flushed to CSV immediately, in completion
 
 The request timeout applies to connection/read inactivity, not total wall-clock duration. For shorter waits, add `--timeout 30`; use Ctrl+C to stop the run.
 
-Without `-o`, the prompt tester saves results to `Prompt Results/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `Prompt Results/direct_injection_output.csv`. The destination directory is created automatically. Before replacing an existing output, the tester creates a unique backup beside it named `<output_stem>_backup_<timestamp>.csv`. If backup fails, the run stops before sending requests. Use `-o` to select a separate run or authentication-state filename.
+Without `-o`, the prompt tester saves results to `prompt_results/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `prompt_results/direct_injection_output.csv`. The destination directory is created automatically. Before replacing an existing output, the tester creates a unique backup beside it named `<output_stem>_backup_<timestamp>.csv`. If backup fails, the run stops before sending requests. Use `-o` to select a separate run or authentication-state filename.
 
 Before a run, the tester validates required `id`, `technique`, and `prompt` headers and CSV structure. Malformed rows or datasets with no usable prompts stop the run before requests or output replacement. Empty prompts are skipped with a warning; duplicate IDs/prompts are reported and retained. UTF-8 BOMs and quoted multiline prompts are supported.
 
@@ -178,13 +178,13 @@ ollama pull qwen3:8b
 With Ollama running, evaluate a results file:
 
 ```bash
-python tools/injection_judge.py "Prompt Results/direct_injection_output.csv"
+python tools/injection_judge.py "prompt_results/direct_injection_output.csv"
 ```
 
 Specify an Ollama endpoint and model:
 
 ```bash
-python tools/injection_judge.py "Prompt Results/direct_injection_output.csv" -u http://localhost:11434/api/generate --model qwen3:8b
+python tools/injection_judge.py "prompt_results/direct_injection_output.csv" -u http://localhost:11434/api/generate --model qwen3:8b
 ```
 
 The judge validates the input before making changes and **overwrites the input CSV with judged results**, adding the columns below. It does not create a backup or a separate judged CSV:
@@ -219,13 +219,13 @@ The original three judgment columns remain available. `judge_signature` records 
 
 ```bash
 # Resume an interrupted run using matching judgments
-python tools/injection_judge.py "Prompt Results/direct_injection_output.csv" --resume
+python tools/injection_judge.py "prompt_results/direct_injection_output.csv" --resume
 
 # Optional second assessment of proposed successes (slower)
-python tools/injection_judge.py "Prompt Results/direct_injection_output.csv" --review-successes
+python tools/injection_judge.py "prompt_results/direct_injection_output.csv" --review-successes
 
 # Adjust inactivity timeout and output budget when needed
-python tools/injection_judge.py "Prompt Results/direct_injection_output.csv" --timeout 180 --max-tokens 1024
+python tools/injection_judge.py "prompt_results/direct_injection_output.csv" --timeout 180 --max-tokens 1024
 ```
 
 Progress reports waiting requests, and the final summary separates classifications, judge errors, skipped results, and remaining work, with elapsed time and the absolute output path.

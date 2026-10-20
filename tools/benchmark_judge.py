@@ -161,7 +161,7 @@ def main():
     run = commands.add_parser('run', help='Evaluate manually labeled cases')
     run.add_argument('cases_file')
     run.add_argument('--output-prefix', default=str(Path(__file__).resolve().parent.parent /
-                                                  'Prompt Results' / 'judge_benchmark'))
+                                                  'prompt_results' / 'judge_benchmark'))
     run.add_argument('-u', '--url', default='http://localhost:11434/api/generate')
     run.add_argument('-m', '--model', default='qwen3:8b')
     run.add_argument('--split', choices=('development', 'holdout'))

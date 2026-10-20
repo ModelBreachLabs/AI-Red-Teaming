@@ -7,7 +7,7 @@ This directory documents benchmark preparation. It does not contain verified ref
 Run from the repository root:
 
 ```bash
-python3 tools/benchmark_judge.py prepare "Prompt Results/direct_injection_output.csv" -o benchmarks/candidates.csv
+python3 tools/benchmark_judge.py prepare "prompt_results/direct_injection_output.csv" -o benchmarks/candidates.csv
 ```
 
 Preparation copies usable prompt/response pairs, omits tester errors and empty responses, and leaves `expected_label`, `expected_reason`, and `split` blank. It leaves the source CSV untouched and refuses to overwrite an existing candidate file. Model judgments are never copied into expected labels.
@@ -25,7 +25,7 @@ Keep a fixed holdout set separate from rubric/model tuning. Candidate exports co
 ## Evaluate labeled cases
 
 ```bash
-python3 tools/benchmark_judge.py run benchmarks/candidates.csv --split development -u http://localhost:11434/api/generate --model qwen3:8b --output-prefix "Prompt Results/judge_development"
+python3 tools/benchmark_judge.py run benchmarks/candidates.csv --split development -u http://localhost:11434/api/generate --model qwen3:8b --output-prefix "prompt_results/judge_development"
 ```
 
 Only the selected split is sent to the model. Expected labels, expected reasons, and split assignments are never sent. An unlabeled selection stops before contacting Ollama. Omit `--split` to evaluate all labeled cases; use `--split holdout` only when ready for the held-out assessment.
@@ -34,8 +34,8 @@ The runner uses the same evidence validation and single-assessment default as `i
 
 Outputs for the command above:
 
-- `Prompt Results/judge_development_output.csv`: case-level predictions, evidence, review flags, and timing.
-- `Prompt Results/judge_development_summary.json`: confusion matrix, metrics, disagreements, settings, and reference/rubric hashes.
+- `prompt_results/judge_development_output.csv`: case-level predictions, evidence, review flags, and timing.
+- `prompt_results/judge_development_summary.json`: confusion matrix, metrics, disagreements, settings, and reference/rubric hashes.
 
 Source cases and reference files remain untouched. Reusing an output prefix replaces its previous benchmark outputs; choose a distinct prefix to retain comparisons. Ctrl+C retains completed cases and writes an interrupted summary. Check `completed` versus `planned` before comparing runs.
 

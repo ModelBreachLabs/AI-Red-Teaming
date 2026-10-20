@@ -346,7 +346,7 @@ Input file format:
     parser.add_argument('-u', '--url', type=str, default='http://localhost:5000/api/chat',
                         help='Chat API endpoint URL (default: http://localhost:5000/api/chat)')
     parser.add_argument('-o', '--output', type=str, default=None,
-                        help='Output CSV path (default: repository-root Prompt Results/<dataset_name>_output.csv)')
+                        help='Output CSV path (default: repository-root prompt_results/<dataset_name>_output.csv)')
     parser.add_argument('-r', '--repeat', type=int, default=1,
                         help='Number of times to repeat each prompt (default: 1)')
     parser.add_argument('--check-for-phrase', action='store_true',
@@ -378,7 +378,7 @@ Input file format:
     
     # Anchor default results to the repository, independent of the working directory.
     if args.output is None:
-        results_dir = Path(__file__).resolve().parent.parent / 'Prompt Results'
+        results_dir = Path(__file__).resolve().parent.parent / 'prompt_results'
         args.output = str(results_dir / f'{Path(args.input_file).stem}_output.csv')
     
     if Path(args.input_file).resolve() == Path(args.output).expanduser().resolve():

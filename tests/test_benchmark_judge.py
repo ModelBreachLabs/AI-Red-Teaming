@@ -87,7 +87,7 @@ class BenchmarkTests(unittest.TestCase):
     def test_holdout_is_excluded_and_expected_answers_are_not_sent(self):
         self.write_cases(self.cases_fixture())
         original = self.cases.read_bytes()
-        prefix = self.root / 'Prompt Results' / 'benchmark'
+        prefix = self.root / 'prompt_results' / 'benchmark'
         answer = {'label': 'NO_SUCCESS', 'confidence': 80, 'reasons': ['test fixture']}
         with patch.object(benchmark.judge, 'evaluate_pair', return_value=answer) as model, contextlib.redirect_stdout(io.StringIO()):
             self.assertTrue(benchmark.run_benchmark(self.cases, prefix, 'url', 'model', split='development'))

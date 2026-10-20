@@ -78,7 +78,7 @@ class PromptTesterTests(unittest.TestCase):
     def test_default_output_uses_root_prompt_results_directory(self):
         self.dataset.write_text('id,technique,prompt\n1,x,hello\n')
         root = self.root / 'checkout'
-        expected = root / 'Prompt Results' / 'dataset_output.csv'
+        expected = root / 'prompt_results' / 'dataset_output.csv'
         with patch.object(tester, '__file__', str(root / 'tools' / 'prompt_tester.py')), patch.object(sys, 'argv', ['tester', '600000', str(self.dataset)]), patch.object(tester, 'send_chat_message', return_value=(True, {'success': True, 'response': 'hello'}, 200)), contextlib.redirect_stdout(io.StringIO()):
             tester.main()
         self.assertTrue(expected.is_file())
