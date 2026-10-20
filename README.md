@@ -204,7 +204,19 @@ Classification labels include:
 
 The rubric treats supplied prompts and responses as untrusted evidence. It distinguishes refusals, attack-text echoes, simulations, and unverified claims from demonstrated compliance. `POSSIBLE` identifies evidence that needs manual verification. Strict output validation requires a supported label, a finite confidence value from 0 to 100, and nonempty reasons; malformed judgments are recorded as `ERROR`.
 
-Each processed row is checkpointed by writing a complete temporary CSV and atomically replacing the input. Original columns and unprocessed rows are preserved. Ctrl+C retains completed judgments and exits without waiting for a stalled judge request; unprocessed judgment cells remain blank. Each invocation starts a fresh evaluation and backs up any previous classifications. External changes detected during judging stop the run instead of overwriting that file, so finish the prompt tester before starting the judge.
+Each processed row is checkpointed by writing a complete temporary CSV and atomically replacing the input. Original columns and unprocessed rows are preserved. Ctrl+C retains completed judgments and exits without waiting for a stalled judge request; unprocessed judgment cells remain blank. By default, each invocation starts a fresh evaluation and backs up previous classifications. Add `--resume` to reuse valid judgments with matching evidence, model, endpoint, rubric, schema, and generation settings; errors and unfinished rows are judged again. Legacy judgments without matching provenance are re-evaluated. Model tag contents are not fingerprinted, so start a fresh run if you replace a model under the same name. External changes detected during judging stop the run instead of overwriting that file, so finish the prompt tester before starting the judge.
+
+The judge defaults to `think: false`, a 512-token output limit, one or two concise reasons, and schema-constrained JSON. The rubric evaluates the actual attack objective: absence of credentials does not by itself disprove initialization-text disclosure. Models that reject disabled thinking can use `--model-default-thinking`; `--think` explicitly enables it. A token-limit stop is recorded as `ERROR`, not a classification; increase `--max-tokens` if needed. These settings reduce unnecessary generation but do not guarantee speed or accuracy on your hardware.
+
+The original three judgment columns remain available. `judge_signature` records the evidence/configuration fingerprint for resume checks, and `judge_seconds` records each new judge call's wall-clock duration. When returned by Ollama, model load, prompt processing, generation times, and tokens/second are displayed in the terminal.
+
+```bash
+# Resume an interrupted run using matching judgments
+python tools/injection_judge.py Documentation/direct_injection_output.csv --resume
+
+# Adjust inactivity timeout and output budget when needed
+python tools/injection_judge.py Documentation/direct_injection_output.csv --timeout 180 --max-tokens 1024
+```
 
 Progress reports waiting requests, and the final summary separates classifications, judge errors, skipped results, and remaining work, with elapsed time and absolute output/backup paths.
 

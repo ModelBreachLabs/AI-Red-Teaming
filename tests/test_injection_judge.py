@@ -80,7 +80,9 @@ class JudgeTests(unittest.TestCase):
         self.assertNotIn(attack, payload['system'])
         evidence = json.loads(payload['prompt'].split('\n', 1)[1])
         self.assertEqual(evidence, {'user_prompt': attack, 'assistant_response': 'refusal'})
-        self.assertEqual(payload['format'], 'json')
+        self.assertEqual(payload['format'], judge.OUTPUT_SCHEMA)
+        self.assertIs(payload['think'], False)
+        self.assertEqual(payload['options']['num_predict'], 512)
 
     def test_bad_model_output_and_transport_errors(self):
         for body in ({'response': 'not JSON'}, {'response': '[]'}, [], {'error': 'model unavailable'}):
@@ -144,6 +146,71 @@ class JudgeTests(unittest.TestCase):
             judge.save_checkpoint(self.file, fields, rows, digest)
         self.assertEqual(self.file.read_text(), 'externally changed')
 
+    def test_resume_reuses_valid_rows_and_retries_errors(self):
+        self.write_rows([{'id': str(i), 'prompt': f'p{i}', 'response': 'r'} for i in range(3)])
+        with patch.object(judge, 'await_judgment', side_effect=[VALID, judge.error_result('timeout'), KeyboardInterrupt]), contextlib.redirect_stdout(io.StringIO()):
+            self.assertFalse(judge.judge_results(str(self.file), 'unused', 'model'))
+        before = self.read_rows()
+        self.assertEqual([r['injection_label'] for r in before], ['SUCCESS', 'ERROR', ''])
+        with patch.object(judge, 'await_judgment', return_value=VALID) as model, contextlib.redirect_stdout(io.StringIO()) as log:
+            self.assertTrue(judge.judge_results(str(self.file), 'unused', 'model', resume=True))
+        self.assertEqual(model.call_count, 2)
+        self.assertIn('Reused: 1', log.getvalue())
+        self.assertEqual(self.read_rows()[0], before[0])
+
+    def test_resume_invalidates_changed_evidence_or_configuration(self):
+        row = {'id': '1', 'prompt': 'p', 'response': 'r'}
+        signature = judge.judgment_signature(row, 'url', 'model', False, 512)
+        saved = {**row, 'judge_signature': signature, 'injection_label': 'SUCCESS',
+                 'injection_confidence': '90', 'injection_reasons': 'evidence'}
+        self.assertTrue(judge.reusable_judgment(saved, signature))
+        for evidence, url, model, think, tokens in [
+                ({**row, 'response': 'changed'}, 'url', 'model', False, 512),
+                (row, 'different-url', 'model', False, 512),
+                (row, 'url', 'different-model', False, 512),
+                (row, 'url', 'model', True, 512),
+                (row, 'url', 'model', False, 1024)]:
+            changed = judge.judgment_signature(evidence, url, model, think, tokens)
+            self.assertFalse(judge.reusable_judgment(saved, changed))
+        with patch.object(judge, 'RUBRIC', judge.RUBRIC + ' revised'):
+            changed = judge.judgment_signature(row, 'url', 'model', False, 512)
+        self.assertFalse(judge.reusable_judgment(saved, changed))
+        self.assertFalse(judge.reusable_judgment({**saved, 'injection_label': 'ERROR'}, signature))
+
+    def test_legacy_judgments_are_rechecked(self):
+        self.write_rows([{'id': '1', 'prompt': 'p', 'response': 'r', 'injection_label': 'SUCCESS',
+                          'injection_confidence': '90', 'injection_reasons': 'old rubric'}], judge.JUDGMENT_COLUMNS)
+        with patch.object(judge, 'await_judgment', return_value=VALID) as model, contextlib.redirect_stdout(io.StringIO()):
+            judge.judge_results(str(self.file), 'url', 'model', resume=True)
+        model.assert_called_once()
+
+    def test_generation_settings_and_metrics(self):
+        reply = types.SimpleNamespace(ok=True, status_code=200, json=lambda: {
+            'response': json.dumps(VALID), 'load_duration': 1000000000,
+            'prompt_eval_duration': 2000000000, 'eval_duration': 4000000000,
+            'eval_count': 40})
+        with patch.object(requests, 'post', return_value=reply) as post:
+            result = judge.judge_injection_success('p', 'r', think=True, timeout=180, max_tokens=1024)
+        self.assertIs(post.call_args.kwargs['json']['think'], True)
+        self.assertEqual(post.call_args.kwargs['timeout'], (10, 180))
+        self.assertEqual(post.call_args.kwargs['json']['options']['num_predict'], 1024)
+        self.assertIn('10.0 tokens/s', judge.timing_description(result['metrics']))
+
+    def test_truncated_output_is_error_even_when_json_looks_valid(self):
+        reply = types.SimpleNamespace(ok=True, status_code=200,
+                                      json=lambda: {'response': json.dumps(VALID), 'done_reason': 'length'})
+        with patch.object(requests, 'post', return_value=reply):
+            result = judge.judge_injection_success('p', 'r')
+        self.assertEqual(result['label'], 'ERROR')
+        self.assertIn('--max-tokens', result['reasons'][0])
+
+    def test_http_error_explains_server_rejection(self):
+        reply = types.SimpleNamespace(ok=False, status_code=400, text='thinking setting unsupported')
+        with patch.object(requests, 'post', return_value=reply):
+            result = judge.judge_injection_success('p', 'r')
+        self.assertEqual(result['label'], 'ERROR')
+        self.assertIn('thinking setting unsupported', result['reasons'][0])
+
     def test_backup_failure_aborts_without_judging(self):
         self.write_rows([{'id': '1', 'prompt': 'p', 'response': 'r'}])
         original = self.file.read_bytes()
@@ -192,3 +259,4 @@ runpy.run_path(script, run_name='__main__')
 
 if __name__ == '__main__':
     unittest.main()
+
