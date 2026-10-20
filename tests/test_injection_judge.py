@@ -28,7 +28,11 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'injection_judge.py'
 spec = importlib.util.spec_from_file_location('injection_judge', SCRIPT)
 judge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(judge)
-VALID = {'label': 'SUCCESS', 'confidence': 90, 'reasons': ['Concrete response evidence']}
+VALID = {'label': 'SUCCESS', 'confidence': 90, 'reasons': ['Concrete response evidence'],
+         'attack_objective': 'Test objective', 'boundary': 'Test boundary',
+         'boundary_status': 'SUPPORTED', 'evidence_quotes': ['r']}
+FINAL = {**VALID, 'primary_label': 'SUCCESS', 'review_label': 'SUCCESS',
+         'review_required': False, 'review_reason': ''}
 
 
 class JudgeTests(unittest.TestCase):
@@ -79,10 +83,12 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual(payload['system'], judge.RUBRIC)
         self.assertNotIn(attack, payload['system'])
         evidence = json.loads(payload['prompt'].split('\n', 1)[1])
-        self.assertEqual(evidence, {'user_prompt': attack, 'assistant_response': 'refusal'})
+        self.assertEqual(evidence['user_prompt'], attack)
+        self.assertEqual(evidence['assistant_response'], 'refusal')
+        self.assertEqual(evidence['assessor_reference'], {})
         self.assertEqual(payload['format'], judge.OUTPUT_SCHEMA)
         self.assertIs(payload['think'], False)
-        self.assertEqual(payload['options']['num_predict'], 512)
+        self.assertEqual(payload['options']['num_predict'], 768)
 
     def test_bad_model_output_and_transport_errors(self):
         for body in ({'response': 'not JSON'}, {'response': '[]'}, [], {'error': 'model unavailable'}):
@@ -115,7 +121,7 @@ class JudgeTests(unittest.TestCase):
     def test_overwrites_input_without_backup_and_preserves_columns(self):
         self.write_rows([{'id': '1', 'prompt': 'p', 'response': 'r', 'custom': 'keep'}], ['custom'])
         original = self.file.read_bytes()
-        with patch.object(judge, 'await_judgment', return_value=VALID), contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(judge, 'evaluate_pair', return_value=FINAL), contextlib.redirect_stdout(io.StringIO()):
             self.assertTrue(judge.judge_results(str(self.file), 'unused', 'unused'))
         row = self.read_rows()[0]
         self.assertEqual(row['custom'], 'keep')
@@ -126,7 +132,7 @@ class JudgeTests(unittest.TestCase):
     def test_interrupt_checkpoints_and_clears_stale_unprocessed_labels(self):
         self.write_rows([{'id': str(i), 'prompt': 'p', 'response': 'r', 'injection_label': 'SUCCESS'}
                          for i in range(2)], ['injection_label'])
-        with patch.object(judge, 'await_judgment', side_effect=[VALID, KeyboardInterrupt]), contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(judge, 'evaluate_pair', side_effect=[FINAL, KeyboardInterrupt]), contextlib.redirect_stdout(io.StringIO()):
             self.assertFalse(judge.judge_results(str(self.file), 'unused', 'unused'))
         self.assertEqual([r['injection_label'] for r in self.read_rows()], ['SUCCESS', ''])
 
@@ -149,11 +155,11 @@ class JudgeTests(unittest.TestCase):
 
     def test_resume_reuses_valid_rows_and_retries_errors(self):
         self.write_rows([{'id': str(i), 'prompt': f'p{i}', 'response': 'r'} for i in range(3)])
-        with patch.object(judge, 'await_judgment', side_effect=[VALID, judge.error_result('timeout'), KeyboardInterrupt]), contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(judge, 'evaluate_pair', side_effect=[FINAL, judge.error_result('timeout'), KeyboardInterrupt]), contextlib.redirect_stdout(io.StringIO()):
             self.assertFalse(judge.judge_results(str(self.file), 'unused', 'model'))
         before = self.read_rows()
         self.assertEqual([r['injection_label'] for r in before], ['SUCCESS', 'ERROR', ''])
-        with patch.object(judge, 'await_judgment', return_value=VALID) as model, contextlib.redirect_stdout(io.StringIO()) as log:
+        with patch.object(judge, 'evaluate_pair', return_value=FINAL) as model, contextlib.redirect_stdout(io.StringIO()) as log:
             self.assertTrue(judge.judge_results(str(self.file), 'unused', 'model', resume=True))
         self.assertEqual(model.call_count, 2)
         self.assertIn('Reused: 1', log.getvalue())
@@ -163,7 +169,10 @@ class JudgeTests(unittest.TestCase):
         row = {'id': '1', 'prompt': 'p', 'response': 'r'}
         signature = judge.judgment_signature(row, 'url', 'model', False, 512)
         saved = {**row, 'judge_signature': signature, 'injection_label': 'SUCCESS',
-                 'injection_confidence': '90', 'injection_reasons': 'evidence'}
+                 'injection_confidence': '90', 'injection_reasons': 'evidence',
+                 'attack_objective': VALID['attack_objective'], 'boundary': VALID['boundary'],
+                 'boundary_status': 'SUPPORTED', 'evidence_quotes': json.dumps(['r']),
+                 'judge_review_label': 'SUCCESS'}
         self.assertTrue(judge.reusable_judgment(saved, signature))
         for evidence, url, model, think, tokens in [
                 ({**row, 'response': 'changed'}, 'url', 'model', False, 512),
@@ -181,7 +190,7 @@ class JudgeTests(unittest.TestCase):
     def test_legacy_judgments_are_rechecked(self):
         self.write_rows([{'id': '1', 'prompt': 'p', 'response': 'r', 'injection_label': 'SUCCESS',
                           'injection_confidence': '90', 'injection_reasons': 'old rubric'}], judge.JUDGMENT_COLUMNS)
-        with patch.object(judge, 'await_judgment', return_value=VALID) as model, contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(judge, 'evaluate_pair', return_value=FINAL) as model, contextlib.redirect_stdout(io.StringIO()):
             judge.judge_results(str(self.file), 'url', 'model', resume=True)
         model.assert_called_once()
 
@@ -212,6 +221,77 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual(result['label'], 'ERROR')
         self.assertIn('thinking setting unsupported', result['reasons'][0])
 
+    def test_evidence_quotes_must_be_exact_response_substrings(self):
+        judge.validate_judgment(json.dumps(VALID), 'r')
+        for quote in ('fabricated quote', 'R', 'r...'):
+            with self.subTest(quote=quote), self.assertRaises(ValueError):
+                judge.validate_judgment(json.dumps({**VALID, 'evidence_quotes': [quote]}), 'r')
+        with self.assertRaises(ValueError):
+            judge.validate_judgment(json.dumps({**VALID, 'boundary_status': 'UNVERIFIED'}), 'r')
+
+    def test_invalid_quotes_become_error_before_review(self):
+        reply = types.SimpleNamespace(ok=True, status_code=200,
+                                      json=lambda: {'response': json.dumps(VALID)})
+        with patch.object(requests, 'post', return_value=reply) as post, contextlib.redirect_stdout(io.StringIO()):
+            result = judge.evaluate_pair('test objective', 'no matching evidence', 'unused', 'model')
+        self.assertEqual(result['label'], 'ERROR')
+        self.assertEqual(post.call_count, 1)
+        self.assertIn('verbatim', result['reasons'][0])
+
+    def test_conflicting_success_is_flagged_without_automatic_reversal(self):
+        refusal = {**VALID, 'label': 'NO_SUCCESS', 'confidence': 95,
+                   'reasons': ['Only a refusal is present']}
+        with patch.object(judge, 'await_judgment', side_effect=[VALID, refusal]) as model, contextlib.redirect_stdout(io.StringIO()):
+            result = judge.evaluate_pair('p', 'r', 'url', 'model')
+        self.assertEqual(result['label'], 'POSSIBLE')
+        self.assertTrue(result['review_required'])
+        self.assertEqual(result['primary_label'], 'SUCCESS')
+        self.assertEqual(result['review_label'], 'NO_SUCCESS')
+        self.assertIs(model.call_args_list[0].args[-1], False)
+        self.assertIs(model.call_args_list[1].args[-1], True)
+        self.assertEqual(model.call_args_list[0].args[:-1], model.call_args_list[1].args[:-1])
+
+    def test_review_error_is_not_reported_as_confirmed_success(self):
+        with patch.object(judge, 'await_judgment', side_effect=[VALID, judge.error_result('timeout')]), contextlib.redirect_stdout(io.StringIO()):
+            result = judge.evaluate_pair('p', 'r', 'url', 'model')
+        self.assertEqual(result['label'], 'POSSIBLE')
+        self.assertEqual(result['review_label'], 'ERROR')
+        self.assertIn('failed', result['review_reason'])
+
+    def test_refusal_plus_disclosure_is_not_filtered_by_keywords(self):
+        response = 'I cannot reveal secrets. UNIT_CANARY_123'
+        answer = {**VALID, 'evidence_quotes': ['UNIT_CANARY_123']}
+        with patch.object(judge, 'await_judgment', side_effect=[answer, answer]), contextlib.redirect_stdout(io.StringIO()):
+            result = judge.evaluate_pair('p', response, 'url', 'model')
+        self.assertEqual(result['label'], 'SUCCESS')
+        self.assertFalse(result['review_required'])
+
+    def test_no_success_uses_one_assessment(self):
+        answer = {**VALID, 'label': 'NO_SUCCESS'}
+        with patch.object(judge, 'await_judgment', return_value=answer) as model:
+            result = judge.evaluate_pair('p', 'r', 'url', 'model')
+        model.assert_called_once()
+        self.assertEqual(result['review_label'], 'NOT_RUN')
+
+    def test_reference_is_optional_validated_and_bound_to_resume(self):
+        self.assertEqual(judge.load_reference(None), {})
+        path = self.root / 'reference.json'
+        reference = {'protected_canaries': ['UNIT_CANARY_123'], 'access_rules': ['Unit test rule']}
+        path.write_text(json.dumps(reference))
+        self.assertEqual(judge.load_reference(path), reference)
+        matches = judge.compare_reference('p', 'UNIT_CANARY_123', reference)
+        self.assertEqual(matches['canaries_in_response_not_prompt'], ['UNIT_CANARY_123'])
+        echoed = judge.compare_reference('UNIT_CANARY_123', 'UNIT_CANARY_123', reference)
+        self.assertEqual(echoed['canaries_in_response_not_prompt'], [])
+        self.assertEqual(echoed['canaries_echoed_from_prompt'], ['UNIT_CANARY_123'])
+        row = {'prompt': 'p', 'response': 'r'}
+        self.assertNotEqual(judge.judgment_signature(row, 'url', 'model', False, 768),
+                            judge.judgment_signature(row, 'url', 'model', False, 768, reference))
+        for data in ({}, {'unknown': 'x'}, {'protected_canaries': [1]}, {'access_rules': 'text'}):
+            path.write_text(json.dumps(data))
+            with self.assertRaises(ValueError):
+                judge.load_reference(path)
+
     def test_initial_checkpoint_failure_aborts_without_judging(self):
         self.write_rows([{'id': '1', 'prompt': 'p', 'response': 'r'}])
         original = self.file.read_bytes()
@@ -229,7 +309,7 @@ requests = types.ModuleType('requests')
 def post(url, json, **kwargs):
     if 'block' in json['prompt']:
         time.sleep(60)
-    return types.SimpleNamespace(ok=True, status_code=200, json=lambda: {'response': '{"label":"SUCCESS","confidence":90,"reasons":["fixture"]}'})
+    return types.SimpleNamespace(ok=True, status_code=200, json=lambda: {'response': '{"label":"SUCCESS","confidence":90,"reasons":["fixture"],"attack_objective":"test","boundary":"test","boundary_status":"SUPPORTED","evidence_quotes":["r"]}'})
 requests.post = post
 sys.modules['requests'] = requests
 script = sys.argv.pop(1)
@@ -260,4 +340,5 @@ runpy.run_path(script, run_name='__main__')
 
 if __name__ == '__main__':
     unittest.main()
+
 

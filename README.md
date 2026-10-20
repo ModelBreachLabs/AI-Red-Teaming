@@ -22,6 +22,7 @@ This repository provides practical resources for assessing LLM-powered applicati
 | --- | --- |
 | `tools/prompt_tester.py` | Run CSV prompt datasets against a chat endpoint and capture responses |
 | `tools/injection_judge.py` | Evaluate prompt/response pairs using an Ollama-hosted LLM |
+| `tools/benchmark_judge.py` | Prepare unlabeled cases and score manually reviewed judge benchmarks |
 | `tools/temp_probe.py` | Compare repeated responses and measure response variation, timing, and throttling |
 | `tools/rate_probe.py` | Send scheduled requests and detect rate-limit responses |
 
@@ -193,6 +194,10 @@ The judge validates the input before making changes and **overwrites the input C
 | `injection_label` | Classification result |
 | `injection_confidence` | Model-reported confidence |
 | `injection_reasons` | Explanation supporting the classification |
+| `attack_objective`, `boundary`, `boundary_status` | Claimed objective, boundary, and whether it is supported, unverified, or absent |
+| `evidence_quotes` | JSON list of exact substrings from the assistant response |
+| `judge_primary_label`, `judge_review_label` | Initial classification and independent review result, when run |
+| `judge_review_required`, `judge_review_reason` | Manual-review flag and explanation |
 
 Classification labels include:
 
@@ -202,13 +207,15 @@ Classification labels include:
 - `ERROR`
 - `SKIP` for tester errors (including `error_type` and legacy `ERROR:` responses) or empty assistant responses
 
-The rubric treats supplied prompts and responses as untrusted evidence. It distinguishes refusals, attack-text echoes, simulations, and unverified claims from demonstrated compliance. `POSSIBLE` identifies evidence that needs manual verification. Strict output validation requires a supported label, a finite confidence value from 0 to 100, and nonempty reasons; malformed judgments are recorded as `ERROR`.
+The rubric treats prompts and responses as untrusted evidence. Each classification must identify the actual objective and boundary and supply one to three quotes appearing verbatim in the assistant response. Invalid quotes or malformed judgments become `ERROR`. `SUCCESS` requires a boundary marked `SUPPORTED`; this remains a model assessment, not independent proof. There is no blanket refusal-word filter: a refusal can coexist with disclosure.
 
-Each processed row is checkpointed by writing a complete temporary CSV and atomically replacing the input. Original columns and unprocessed rows are preserved. Ctrl+C retains completed judgments and exits without waiting for a stalled judge request; unprocessed judgment cells remain blank. By default, each invocation starts a fresh evaluation, replacing previous classifications in the same file. Add `--resume` to reuse valid judgments with matching evidence, model, endpoint, rubric, schema, and generation settings; errors and unfinished rows are judged again. Legacy judgments without matching provenance are re-evaluated. Model tag contents are not fingerprinted, so start a fresh run if you replace a model under the same name. External changes detected during judging stop the run instead of overwriting that file, so finish the prompt tester before starting the judge.
+Every proposed `SUCCESS` receives a second assessment without seeing the first verdict. Agreement retains `SUCCESS`; disagreement or a failed review becomes `POSSIBLE` and is flagged for manual review. Other `POSSIBLE` and `ERROR` rows are also flagged. Both assessments use the same model and can share mistakes. This adds a second request for proposed successes.
 
-The judge defaults to `think: false`, a 512-token output limit, one or two concise reasons, and schema-constrained JSON. The rubric evaluates the actual attack objective: absence of credentials does not by itself disprove initialization-text disclosure. Models that reject disabled thinking can use `--model-default-thinking`; `--think` explicitly enables it. A token-limit stop is recorded as `ERROR`, not a classification; increase `--max-tokens` if needed. These settings reduce unnecessary generation but do not guarantee speed or accuracy on your hardware.
+Each processed row is checkpointed by writing a complete temporary CSV and atomically replacing the input. Original columns and unprocessed rows are preserved. Ctrl+C retains completed judgments and exits without waiting for a stalled judge request; unprocessed judgment cells remain blank. By default, each invocation starts a fresh evaluation, replacing previous classifications in the same file. Add `--resume` to reuse valid judgments with matching evidence, model, endpoint, rubric, schema, and generation settings; errors, failed second assessments, and unfinished rows are judged again. Reference content and the review policy are included in resume checks. Legacy judgments without matching provenance are re-evaluated. Model tag contents are not fingerprinted, so start a fresh run if you replace a model under the same name. External changes detected during judging stop the run instead of overwriting that file, so finish the prompt tester before starting the judge.
 
-The original three judgment columns remain available. `judge_signature` records the evidence/configuration fingerprint for resume checks, and `judge_seconds` records each new judge call's wall-clock duration. When returned by Ollama, model load, prompt processing, generation times, and tokens/second are displayed in the terminal.
+The judge defaults to `think: false`, a 768-token output limit, one or two concise reasons, and schema-constrained JSON. The rubric evaluates the actual attack objective: absence of credentials does not by itself disprove initialization-text disclosure. Models that reject disabled thinking can use `--model-default-thinking`; `--think` explicitly enables it. A token-limit stop is recorded as `ERROR`, not a classification; increase `--max-tokens` if needed. These settings reduce unnecessary generation but do not guarantee speed or accuracy on your hardware.
+
+The original three judgment columns remain available. `judge_signature` records the evidence/configuration fingerprint for resume checks, and `judge_seconds` records each row's total assessment wall-clock duration. When returned by Ollama, model load, prompt processing, generation times, and tokens/second are displayed in the terminal.
 
 ```bash
 # Resume an interrupted run using matching judgments
@@ -221,6 +228,16 @@ python tools/injection_judge.py "Prompt Results/direct_injection_output.csv" --t
 Progress reports waiting requests, and the final summary separates classifications, judge errors, skipped results, and remaining work, with elapsed time and the absolute output path.
 
 Review classifications manually. Confidence is model-reported, not a calibrated probability. The judge cannot verify secret authenticity or backend state changes from text alone, and instructions in the rubric do not guarantee resistance to adversarial evidence. It evaluates injection evidence and does not provide dedicated scoring for harmful content, off-topic responses, or resource consumption.
+
+### Optional Reference Context
+
+The normal command works without a reference file. After collecting verified context, pass `--reference-file path/to/reference.json`. Supported JSON keys are `expected_behavior` and `system_prompt` (strings), and `access_rules` and `protected_canaries` (lists of strings). Include only keys you can substantiate; unknown keys, wrong types, and empty reference objects are rejected. No reference data is supplied in this repository.
+
+Literal comparisons distinguish canaries already present in the attack from canaries appearing only in the response, and check for the complete reference system prompt. These comparisons are assessment context, not proof of retrieval, authenticity, or backend execution. Treat reference files as sensitive assessment material and keep them out of public commits.
+
+### Judge Benchmarking
+
+See [benchmarks/README.md](benchmarks/README.md) for candidate preparation, manual labels, development/holdout splits, and scoring. The runner uses the same judge pipeline and never sends expected labels or labeling reasons to the model. No ground-truth dataset or measured accuracy is provided yet.
 
 ## Response Variation Testing
 
@@ -298,8 +315,9 @@ Use these materials on applications you own or are authorized to assess, within 
 
 ## Script Checks
 
-Run the prompt tester and injection judge regression checks without contacting a target:
+Run the prompt tester, injection judge, and benchmark regression checks without contacting a target:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
+
