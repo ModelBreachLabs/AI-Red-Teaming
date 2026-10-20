@@ -97,9 +97,9 @@ class JudgeTests(unittest.TestCase):
         for content in ('response\nx\n', 'prompt,response\n', 'prompt,response\np,r,extra\n',
                         'prompt,response\np\n', 'prompt,response,response\np,r,r\n'):
             self.file.write_text(content)
-            with patch.object(judge, 'backup_results') as backup, self.assertRaises(ValueError):
+            with patch.object(judge, 'await_judgment') as model, self.assertRaises(ValueError):
                 judge.judge_results(str(self.file), 'unused', 'unused')
-            backup.assert_not_called()
+            model.assert_not_called()
             self.assertEqual(self.file.read_text(), content)
 
     def test_all_skipped_uses_error_type_and_legacy_errors(self):
@@ -112,7 +112,7 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual([r['injection_label'] for r in self.read_rows()], ['SKIP'] * 3)
         self.assertIn('Valid classifications: 0', log.getvalue())
 
-    def test_preserves_columns_backup_and_completed_labels(self):
+    def test_overwrites_input_without_backup_and_preserves_columns(self):
         self.write_rows([{'id': '1', 'prompt': 'p', 'response': 'r', 'custom': 'keep'}], ['custom'])
         original = self.file.read_bytes()
         with patch.object(judge, 'await_judgment', return_value=VALID), contextlib.redirect_stdout(io.StringIO()):
@@ -120,7 +120,8 @@ class JudgeTests(unittest.TestCase):
         row = self.read_rows()[0]
         self.assertEqual(row['custom'], 'keep')
         self.assertEqual(row['injection_label'], 'SUCCESS')
-        self.assertEqual(next(self.root.glob('*backup*')).read_bytes(), original)
+        self.assertNotEqual(self.file.read_bytes(), original)
+        self.assertEqual(list(self.root.iterdir()), [self.file])
 
     def test_interrupt_checkpoints_and_clears_stale_unprocessed_labels(self):
         self.write_rows([{'id': str(i), 'prompt': 'p', 'response': 'r', 'injection_label': 'SUCCESS'}
@@ -211,10 +212,10 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual(result['label'], 'ERROR')
         self.assertIn('thinking setting unsupported', result['reasons'][0])
 
-    def test_backup_failure_aborts_without_judging(self):
+    def test_initial_checkpoint_failure_aborts_without_judging(self):
         self.write_rows([{'id': '1', 'prompt': 'p', 'response': 'r'}])
         original = self.file.read_bytes()
-        with patch.object(judge.shutil, 'copyfileobj', side_effect=OSError('disk full')), patch.object(judge, 'await_judgment') as model, self.assertRaises(OSError):
+        with patch.object(judge.os, 'replace', side_effect=OSError('disk full')), patch.object(judge, 'await_judgment') as model, self.assertRaises(OSError):
             judge.judge_results(str(self.file), 'unused', 'unused')
         model.assert_not_called()
         self.assertEqual(self.file.read_bytes(), original)

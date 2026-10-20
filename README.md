@@ -97,7 +97,7 @@ python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -c "session_
 | `rate` | Scheduled request rate in requests per minute |
 | `input_file` | Input CSV path |
 | `-u`, `--url` | Target endpoint; defaults to `http://localhost:5000/api/chat` |
-| `-o`, `--output` | Output CSV path; defaults to `Documentation/<dataset_name>_output.csv` at the repository root |
+| `-o`, `--output` | Output CSV path; defaults to `Prompt Results/<dataset_name>_output.csv` at the repository root |
 | `-r`, `--repeat` | Requests per prompt; defaults to `1` |
 | `--check-for-phrase` | Check whether the row's `technique` value appears in the response, ignoring case |
 | `-c`, `--cookie` | Authentication cookie header |
@@ -145,7 +145,7 @@ Each completed response is written and flushed to CSV immediately, in completion
 
 The request timeout applies to connection/read inactivity, not total wall-clock duration. For shorter waits, add `--timeout 30`; use Ctrl+C to stop the run.
 
-Without `-o`, the prompt tester saves results to `Documentation/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `Documentation/direct_injection_output.csv`. The destination directory is created automatically. Before replacing an existing output, the tester creates a unique backup beside it named `<output_stem>_backup_<timestamp>.csv`. If backup fails, the run stops before sending requests. Use `-o` to select a separate run or authentication-state filename.
+Without `-o`, the prompt tester saves results to `Prompt Results/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `Prompt Results/direct_injection_output.csv`. The destination directory is created automatically. Before replacing an existing output, the tester creates a unique backup beside it named `<output_stem>_backup_<timestamp>.csv`. If backup fails, the run stops before sending requests. Use `-o` to select a separate run or authentication-state filename.
 
 Before a run, the tester validates required `id`, `technique`, and `prompt` headers and CSV structure. Malformed rows or datasets with no usable prompts stop the run before requests or output replacement. Empty prompts are skipped with a warning; duplicate IDs/prompts are reported and retained. UTF-8 BOMs and quoted multiline prompts are supported.
 
@@ -177,16 +177,16 @@ ollama pull qwen3:8b
 With Ollama running, evaluate a results file:
 
 ```bash
-python tools/injection_judge.py Documentation/direct_injection_output.csv
+python tools/injection_judge.py "Prompt Results/direct_injection_output.csv"
 ```
 
 Specify an Ollama endpoint and model:
 
 ```bash
-python tools/injection_judge.py Documentation/direct_injection_output.csv -u http://localhost:11434/api/generate --model qwen3:8b
+python tools/injection_judge.py "Prompt Results/direct_injection_output.csv" -u http://localhost:11434/api/generate --model qwen3:8b
 ```
 
-The judge validates the input before making changes, creates a unique `<input_stem>_backup_<timestamp>.csv` beside it, and **updates the input CSV in place**, adding:
+The judge validates the input before making changes and **overwrites the input CSV with judged results**, adding the columns below. It does not create a backup or a separate judged CSV:
 
 | Column | Description |
 | --- | --- |
@@ -204,7 +204,7 @@ Classification labels include:
 
 The rubric treats supplied prompts and responses as untrusted evidence. It distinguishes refusals, attack-text echoes, simulations, and unverified claims from demonstrated compliance. `POSSIBLE` identifies evidence that needs manual verification. Strict output validation requires a supported label, a finite confidence value from 0 to 100, and nonempty reasons; malformed judgments are recorded as `ERROR`.
 
-Each processed row is checkpointed by writing a complete temporary CSV and atomically replacing the input. Original columns and unprocessed rows are preserved. Ctrl+C retains completed judgments and exits without waiting for a stalled judge request; unprocessed judgment cells remain blank. By default, each invocation starts a fresh evaluation and backs up previous classifications. Add `--resume` to reuse valid judgments with matching evidence, model, endpoint, rubric, schema, and generation settings; errors and unfinished rows are judged again. Legacy judgments without matching provenance are re-evaluated. Model tag contents are not fingerprinted, so start a fresh run if you replace a model under the same name. External changes detected during judging stop the run instead of overwriting that file, so finish the prompt tester before starting the judge.
+Each processed row is checkpointed by writing a complete temporary CSV and atomically replacing the input. Original columns and unprocessed rows are preserved. Ctrl+C retains completed judgments and exits without waiting for a stalled judge request; unprocessed judgment cells remain blank. By default, each invocation starts a fresh evaluation, replacing previous classifications in the same file. Add `--resume` to reuse valid judgments with matching evidence, model, endpoint, rubric, schema, and generation settings; errors and unfinished rows are judged again. Legacy judgments without matching provenance are re-evaluated. Model tag contents are not fingerprinted, so start a fresh run if you replace a model under the same name. External changes detected during judging stop the run instead of overwriting that file, so finish the prompt tester before starting the judge.
 
 The judge defaults to `think: false`, a 512-token output limit, one or two concise reasons, and schema-constrained JSON. The rubric evaluates the actual attack objective: absence of credentials does not by itself disprove initialization-text disclosure. Models that reject disabled thinking can use `--model-default-thinking`; `--think` explicitly enables it. A token-limit stop is recorded as `ERROR`, not a classification; increase `--max-tokens` if needed. These settings reduce unnecessary generation but do not guarantee speed or accuracy on your hardware.
 
@@ -212,13 +212,13 @@ The original three judgment columns remain available. `judge_signature` records 
 
 ```bash
 # Resume an interrupted run using matching judgments
-python tools/injection_judge.py Documentation/direct_injection_output.csv --resume
+python tools/injection_judge.py "Prompt Results/direct_injection_output.csv" --resume
 
 # Adjust inactivity timeout and output budget when needed
-python tools/injection_judge.py Documentation/direct_injection_output.csv --timeout 180 --max-tokens 1024
+python tools/injection_judge.py "Prompt Results/direct_injection_output.csv" --timeout 180 --max-tokens 1024
 ```
 
-Progress reports waiting requests, and the final summary separates classifications, judge errors, skipped results, and remaining work, with elapsed time and absolute output/backup paths.
+Progress reports waiting requests, and the final summary separates classifications, judge errors, skipped results, and remaining work, with elapsed time and the absolute output path.
 
 Review classifications manually. Confidence is model-reported, not a calibrated probability. The judge cannot verify secret authenticity or backend state changes from text alone, and instructions in the rubric do not guarantee resistance to adversarial evidence. It evaluates injection evidence and does not provide dedicated scoring for harmful content, off-topic responses, or resource consumption.
 

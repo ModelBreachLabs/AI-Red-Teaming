@@ -75,6 +75,17 @@ class PromptTesterTests(unittest.TestCase):
         self.assertEqual(stopped.exception.code, 2)
         self.assertIn('1,x,hello', self.dataset.read_text())
 
+    def test_default_output_uses_root_prompt_results_directory(self):
+        self.dataset.write_text('id,technique,prompt\n1,x,hello\n')
+        root = self.root / 'checkout'
+        expected = root / 'Prompt Results' / 'dataset_output.csv'
+        with patch.object(tester, '__file__', str(root / 'tools' / 'prompt_tester.py')), patch.object(sys, 'argv', ['tester', '600000', str(self.dataset)]), patch.object(tester, 'send_chat_message', return_value=(True, {'success': True, 'response': 'hello'}, 200)), contextlib.redirect_stdout(io.StringIO()):
+            tester.main()
+        self.assertTrue(expected.is_file())
+        self.assertFalse((root / 'Documentation').exists())
+        with expected.open() as source:
+            self.assertEqual(list(csv.DictReader(source))[0]['response'], 'hello')
+
     def test_backups_are_unique_and_preserve_bytes(self):
         self.output.write_bytes(b'original\r\nevidence\r\n')
         first = tester.backup_output(self.output)
@@ -181,3 +192,4 @@ runpy.run_path(script, run_name='__main__')
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -10,12 +10,10 @@ import math
 import os
 from pathlib import Path
 import queue
-import shutil
 import stat
 import tempfile
 import threading
 import time
-from datetime import datetime
 
 import requests
 
@@ -175,22 +173,6 @@ def load_results(path):
     return fields, rows, hashlib.sha256(original).hexdigest()
 
 
-def backup_results(path):
-    stamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-    candidate = path.with_name(f"{path.stem}_backup_{stamp}{path.suffix}")
-    suffix = 1
-    while True:
-        try:
-            destination = candidate.open('xb')
-            break
-        except FileExistsError:
-            candidate = path.with_name(f"{path.stem}_backup_{stamp}_{suffix}{path.suffix}")
-            suffix += 1
-    with destination, path.open('rb') as source:
-        shutil.copyfileobj(source, destination)
-    return candidate
-
-
 def save_checkpoint(path, fields, rows, expected_digest):
     """Replace the CSV only after writing a complete checkpoint beside it."""
     temporary = None
@@ -289,10 +271,9 @@ def judge_results(input_file: str, ollama_url: str, model_name: str,
                   resume=False, think=False, timeout=90, max_tokens=512):
     path = Path(input_file).expanduser().resolve()
     fields, rows, digest = load_results(path)
-    backup = backup_results(path)
     print(f"Injection Judge - LLM-based Evidence Analysis")
     print(f"Input:  {path}\nModel:  {model_name}\nEndpoint: {ollama_url}")
-    print(f"Backup: {backup}\nLoaded {len(rows)} results")
+    print(f"Loaded {len(rows)} results")
     fields = list(fields)
     print(f"Thinking: {think}; output token limit: {max_tokens}; timeout: {timeout:g}s")
     print('Resume: reusing matching valid judgments' if resume else 'Fresh evaluation')
@@ -357,7 +338,7 @@ def judge_results(input_file: str, ollama_url: str, model_name: str,
     print(f"Valid classifications: {classified}; judge errors: {stats['ERROR']}; "
           f"skipped tester results: {stats['SKIP']}")
     print(f"Elapsed: {time.monotonic() - started:.1f}s")
-    print(f"Saved: {path}\nOriginal backup: {backup}")
+    print(f"Saved: {path}")
     print("Review evidence manually; confidence is model-reported, not calibrated.")
     return not interrupted
 
@@ -365,7 +346,7 @@ def judge_results(input_file: str, ollama_url: str, model_name: str,
 def main():
     parser = argparse.ArgumentParser(
         description='Judge prompt injection test results using an LLM',
-        epilog='Updates the CSV in place, backs up the original, and checkpoints each row.')
+        epilog='Overwrites the input CSV with judged results and checkpoints each row.')
     parser.add_argument('input_file', type=str, help='Input CSV file from prompt_tester.py')
     parser.add_argument('-u', '--url', type=str, default='http://localhost:11434/api/generate',
                         help='Ollama API endpoint (default: http://localhost:11434/api/generate)')
