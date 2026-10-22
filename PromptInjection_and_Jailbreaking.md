@@ -93,3 +93,11 @@ python3 tools/injection_judge.py "<previous_results>.csv" -u "http://<ollama_URL
 # Format Excel: Conditional Highlighting -> SUCCESS = Green & FAILURE = RED
 # Review Results
 ```
+
+# Prompt Injection - General Information
+- The context window is made up of information from various sources:
+  - System prompts: A set of hidden developer-provided instructions that define the AI's role, behaviour, and restrictions (for example: policies, tone guidance, and safety rules). These are high-priority directives that users do not see.
+  - Developer prompts: Additional hidden instructions (which can sometimes be grouped with the system prompt) that further refine behaviour or implement guardrails (more on these later in the module) at the application level.
+  - User prompts (or user input): YOUR input! The input to which the model is expected to respond or fulfil.
+  - Retrieved context: Content that has been fetched from knowledge bases or documents using RAG (Retrieval-Augmented Generation). This is an important concept covered both in this module and in further modules in this path. This "retrieved context" is provided to the model to help inform its responses.
+  - Tool outputs: LLMs can also be equipped with tools (processes which have been developed and trained to efficiently carry out specific tasks an LLM may be asked to do, such as web search or code execution) or agents (LLM-powered systems that use tools and reasoning to perform multi-step tasks autonomously). The results of calling tools or agents can be fed back into the prompt.
