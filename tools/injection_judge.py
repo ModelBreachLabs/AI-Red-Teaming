@@ -486,7 +486,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='Judge prompt injection test results using an LLM',
         epilog='Overwrites the input CSV with judged results and checkpoints each row.')
-    parser.add_argument('input_file', type=str, help='Input CSV file from prompt_tester.py')
+    parser.add_argument('input_file', type=str, help='Input CSV file from prompt_runner.py')
     parser.add_argument('-u', '--url', type=str, default='http://localhost:11434/api/generate',
                         help='Ollama API endpoint (default: http://localhost:11434/api/generate)')
     parser.add_argument('-m', '--model', type=str, default='qwen3:8b',
@@ -526,5 +526,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 

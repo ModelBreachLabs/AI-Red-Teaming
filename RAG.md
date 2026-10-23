@@ -11,15 +11,15 @@ Results default to `prompt_results/<dataset_name>_output.csv`. Before replacing 
 curl http://localhost:5000/api/knowledge-base/stats 
 
 # Initial targeted RAG testing
-python3 tools/prompt_tester.py 10 tools/prompts/targeted_rag.csv
-python3 tools/prompt_tester.py 10 tools/prompts/targeted_rag.csv -c "<cookie>" -o "prompt_results/targeted_rag_authenticated_output.csv"
+python3 tools/prompt_runner.py 10 tools/prompts/targeted_rag.csv
+python3 tools/prompt_runner.py 10 tools/prompts/targeted_rag.csv -c "<cookie>" -o "prompt_results/targeted_rag_authenticated_output.csv"
 
 # Mid-engagement: review initial results, adapt promising prompts to the target,
 # and save them as tools/prompts/enhanced_targeted_rag.csv before running:
-python3 tools/prompt_tester.py 10 tools/prompts/enhanced_targeted_rag.csv --repeat 2
+python3 tools/prompt_runner.py 10 tools/prompts/enhanced_targeted_rag.csv --repeat 2
 
 # Authenticated
-python3 tools/prompt_tester.py 10 tools/prompts/enhanced_targeted_rag.csv --repeat 2 -c "<cookie>" -o "prompt_results/enhanced_targeted_rag_authenticated_output.csv"
+python3 tools/prompt_runner.py 10 tools/prompts/enhanced_targeted_rag.csv --repeat 2 -c "<cookie>" -o "prompt_results/enhanced_targeted_rag_authenticated_output.csv"
 
 
 ```
@@ -29,8 +29,8 @@ python3 tools/prompt_tester.py 10 tools/prompts/enhanced_targeted_rag.csv --repe
 ## RAG "FISHING"
 - Most of the time we will not have lab level knowledge of the AI and RAG being used by an application, "Fishing" is methodically pulling information via prompts
 ```
-python3 tools/prompt_tester.py 10 --repeat 2 tools/prompts/rag_fishing_prompts.csv
-python3 tools/prompt_tester.py 10 --repeat 2 tools/prompts/rag_fishing_prompts.csv -c "<cookie>" -o "prompt_results/rag_fishing_prompts_authenticated_output.csv"
+python3 tools/prompt_runner.py 10 --repeat 2 tools/prompts/rag_fishing_prompts.csv
+python3 tools/prompt_runner.py 10 --repeat 2 tools/prompts/rag_fishing_prompts.csv -c "<cookie>" -o "prompt_results/rag_fishing_prompts_authenticated_output.csv"
 ```
 - If there are any success or potential successes, modify the prompt and continue testing for further exploitation 
 
@@ -39,8 +39,8 @@ python3 tools/prompt_tester.py 10 --repeat 2 tools/prompts/rag_fishing_prompts.c
   <img width="1328" height="440" alt="image" src="https://github.com/user-attachments/assets/9e2e697d-5258-4224-9fc2-3a8b9bc5d752" />
 
 ```
-python3 tools/prompt_tester.py 10 tools/prompts/canary_rag.csv --check-for-phrase
-python3 tools/prompt_tester.py 10 tools/prompts/canary_rag.csv --check-for-phrase -c "<cookie>" -o "prompt_results/canary_rag_authenticated_output.csv"
+python3 tools/prompt_runner.py 10 tools/prompts/canary_rag.csv --check-for-phrase
+python3 tools/prompt_runner.py 10 tools/prompts/canary_rag.csv --check-for-phrase -c "<cookie>" -o "prompt_results/canary_rag_authenticated_output.csv"
 ```
 
 ## RAG Data Poisoning 

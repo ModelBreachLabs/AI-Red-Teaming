@@ -7,8 +7,8 @@ Use the CSV responses and application observations to validate these tests. The 
 ## Testing for Harmful Output
 
 ```bash
-python3 tools/prompt_tester.py 15 tools/prompts/harmful_prompts.csv --check-for-phrase
-python3 tools/prompt_tester.py 15 tools/prompts/harmful_prompts.csv --check-for-phrase -c "<cookie>"
+python3 tools/prompt_runner.py 15 tools/prompts/harmful_prompts.csv --check-for-phrase
+python3 tools/prompt_runner.py 15 tools/prompts/harmful_prompts.csv --check-for-phrase -c "<cookie>"
 ```
 
 - Define the application's expected content policy before testing.
@@ -19,8 +19,8 @@ python3 tools/prompt_tester.py 15 tools/prompts/harmful_prompts.csv --check-for-
 ## Testing for Off-Topic Content
 
 ```bash
-python3 tools/prompt_tester.py 15 tools/prompts/offtopic_prompts.csv
-python3 tools/prompt_tester.py 15 tools/prompts/offtopic_prompts.csv -c "<cookie>"
+python3 tools/prompt_runner.py 15 tools/prompts/offtopic_prompts.csv
+python3 tools/prompt_runner.py 15 tools/prompts/offtopic_prompts.csv -c "<cookie>"
 ```
 
 - Establish the application's intended scope and expected handling of unrelated requests.
@@ -31,8 +31,8 @@ python3 tools/prompt_tester.py 15 tools/prompts/offtopic_prompts.csv -c "<cookie
 ## Testing for Unbounded Consumption
 
 ```bash
-python3 tools/prompt_tester.py 15 tools/prompts/context_overflow.csv
-python3 tools/prompt_tester.py 15 tools/prompts/context_overflow.csv -c "<cookie>"
+python3 tools/prompt_runner.py 15 tools/prompts/context_overflow.csv
+python3 tools/prompt_runner.py 15 tools/prompts/context_overflow.csv -c "<cookie>"
 ```
 
 - Establish a baseline using a short request, then compare long-input response times, HTTP status codes, and errors under comparable conditions.
