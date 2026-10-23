@@ -14,10 +14,10 @@ Run commands from the repository root (`AI-Red-Teaming/`).
 
 ## Direct Prompt Injection 
 ```
-python3 tools/prompt_tester.py --help
-python3 tools/prompt_tester.py 20 tools/prompts/direct_injection.csv --repeat 3
-python3 tools/prompt_tester.py 10 tools/prompts/direct_injection.csv --repeat 3
-python3 tools/prompt_tester.py 10 tools/prompts/direct_injection.csv --repeat 3 -c "<cookie>"
+python3 tools/prompt_runner.py --help
+python3 tools/prompt_runner.py 20 tools/prompts/direct_injection.csv --repeat 3
+python3 tools/prompt_runner.py 10 tools/prompts/direct_injection.csv --repeat 3
+python3 tools/prompt_runner.py 10 tools/prompts/direct_injection.csv --repeat 3 -c "<cookie>"
  
 
 # Open and Analyze with Google Sheets
@@ -32,8 +32,8 @@ python3 tools/injection_judge.py "<previous_results>.csv" -u "http://<ollama_URL
 
 ## Narrative & Social Engineering Prompt Injections
 ```
-python3 tools/prompt_tester.py 10 tools/prompts/narrative_injections.csv
-python3 tools/prompt_tester.py 10 tools/prompts/narrative_injections.csv -c "<cookie>"
+python3 tools/prompt_runner.py 10 tools/prompts/narrative_injections.csv
+python3 tools/prompt_runner.py 10 tools/prompts/narrative_injections.csv -c "<cookie>"
 
 # Automated Classification
 python3 tools/injection_judge.py --help
@@ -45,8 +45,8 @@ python3 tools/injection_judge.py "<previous_results>.csv" -u "http://<ollama_URL
 
 ## Obfuscation and Encoding 
 ```
-python3 tools/prompt_tester.py 10 tools/prompts/obfuscation_and_encoding_injection.csv
-python3 tools/prompt_tester.py 10 tools/prompts/obfuscation_and_encoding_injection.csv -c "<cookie>" 
+python3 tools/prompt_runner.py 10 tools/prompts/obfuscation_and_encoding_injection.csv
+python3 tools/prompt_runner.py 10 tools/prompts/obfuscation_and_encoding_injection.csv -c "<cookie>"
 
 # Automated Classification
 python3 tools/injection_judge.py --help
@@ -83,8 +83,8 @@ python3 tools/injection_judge.py "<previous_results>.csv" -u "http://<ollama_URL
 
 ## Jailbreaking 
 ```
-python3 tools/prompt_tester.py 10 tools/prompts/jailbreaks.csv
-python3 tools/prompt_tester.py 10 tools/prompts/jailbreaks.csv -c "<cookie>"
+python3 tools/prompt_runner.py 10 tools/prompts/jailbreaks.csv
+python3 tools/prompt_runner.py 10 tools/prompts/jailbreaks.csv -c "<cookie>"
 
 # Automated Classification
 python3 tools/injection_judge.py --help

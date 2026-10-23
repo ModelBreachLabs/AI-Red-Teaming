@@ -15,9 +15,27 @@ import time
 import threading
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
-def send_chat_message(url: str, message: str, cookie: str = None, timeout: float = 120) -> tuple[bool, dict, int]:
+def validate_api_url(value: str) -> str:
+    """Accept HTTP(S) API endpoints on any host."""
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme.lower() not in {'http', 'https'}
+                or not parsed.hostname
+                or any(character.isspace() for character in value)):
+            raise ValueError
+        parsed.port
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "URL must be an absolute HTTP or HTTPS endpoint with a valid host and port"
+        ) from exc
+    return value
+
+
+def send_chat_message(url: str, message: str, cookie: str = None, timeout: float = 120,
+                      session: requests.Session = None) -> tuple[bool, dict, int]:
     """
     Send a message to the chat API endpoint
     
@@ -39,7 +57,8 @@ def send_chat_message(url: str, message: str, cookie: str = None, timeout: float
         if cookie:
             headers["Cookie"] = cookie
         
-        response = requests.post(
+        client = session or requests
+        response = client.post(
             url,
             json=payload,
             headers=headers,
@@ -155,39 +174,62 @@ def classify_error(http_ok, data, status_code):
     return '', ''
 
 
-def test_prompts(url: str, prompts: list[dict], requests_per_minute: float, output_file: str, repeat: int = 1, check_for_phrase: bool = False, cookie: str = None, timeout: float = 120, max_workers: int = 4):
+def test_prompts(url: str, prompts: list[dict], requests_per_minute: float, output_file: str,
+                 repeat: int = 1, check_for_phrase: bool = False, cookie: str = None,
+                 timeout: float = 120, max_workers: int = 4):
     """Run rate-paced requests, saving each completed result immediately."""
     output_file = str(Path(output_file).expanduser().resolve())
     delay = 60.0 / requests_per_minute
-    jobs = [(prompt, number) for prompt in prompts for number in range(1, repeat + 1)]
+    total_requests = len(prompts) * repeat
+    jobs = queue.Queue()
     completions = queue.Queue()
     stop = threading.Event()
-    results = []
-    launched = 0
-    active = 0
-    successful_requests = 0
+    completion_lock = threading.Lock()
+    launched = active = completed = successful_requests = 0
+    total_response_time = 0.0
+    min_response_time = max_response_time = None
+    phrase_checks = phrase_matches = 0
+    errors = Counter()
     interrupted = False
     start_time = time.monotonic()
     next_launch = start_time
     last_progress = start_time
 
-    print(f"Prompt Tester - Multiple Prompts Test")
+    print("Prompt Tester - Multiple Prompts Test")
     print(f"Endpoint:       {url}")
-    print(f"Total Requests: {len(jobs)}")
+    print(f"Total Requests: {total_requests}")
     print(f"Max Rate:       {requests_per_minute} req/min")
     print(f"Max In Flight:  {max_workers}")
     print(f"Request timeout:{timeout:g}s (connect/read inactivity)")
     print(f"Output:         {output_file}")
 
-    def worker(request_num, prompt_data, repeat_num):
-        started = time.monotonic()
+    def worker():
+        client = requests.Session()
         try:
-            outcome = send_chat_message(url, prompt_data['prompt'], cookie, timeout)
-        except Exception as exc:
-            outcome = (False, {'error': str(exc)}, 0)
-        if not stop.is_set():
-            completions.put((request_num, prompt_data, repeat_num,
-                             (time.monotonic() - started) * 1000, outcome))
+            while not stop.is_set():
+                try:
+                    job = jobs.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+                if job is None:
+                    jobs.task_done()
+                    return
+                request_num, prompt_data, repeat_num = job
+                if stop.is_set():
+                    jobs.task_done()
+                    return
+                started = time.monotonic()
+                try:
+                    outcome = send_chat_message(url, prompt_data['prompt'], cookie, timeout, client)
+                except Exception as exc:
+                    outcome = (False, {'error': str(exc), '_error_type': 'REQUEST_ERROR'}, 0)
+                elapsed = (time.monotonic() - started) * 1000
+                with completion_lock:
+                    if not stop.is_set():
+                        completions.put((request_num, prompt_data, repeat_num, elapsed, outcome))
+                jobs.task_done()
+        finally:
+            client.close()
 
     fieldnames = ['id', 'technique', 'repeat_number', 'request_number',
                   'response_time_ms', 'prompt', 'response', 'status_code', 'timestamp', 'error_type']
@@ -204,25 +246,34 @@ def test_prompts(url: str, prompts: list[dict], requests_per_minute: float, outp
         output.flush()
 
         def record(completion):
-            nonlocal active, successful_requests
+            nonlocal active, completed, successful_requests
+            nonlocal total_response_time, min_response_time, max_response_time
+            nonlocal phrase_checks, phrase_matches
             request_num, prompt_data, repeat_num, elapsed, outcome = completion
             active -= 1
+            completed += 1
+            total_response_time += elapsed
+            min_response_time = elapsed if min_response_time is None else min(min_response_time, elapsed)
+            max_response_time = elapsed if max_response_time is None else max(max_response_time, elapsed)
             http_ok, data, status_code = outcome
             if not isinstance(data, dict):
-                data = {'error': 'Expected a JSON object from the chat endpoint', '_error_type': 'RESPONSE_FORMAT'}
+                data = {'error': 'Expected a JSON object from the chat endpoint',
+                        '_error_type': 'RESPONSE_FORMAT'}
             error_type, error = classify_error(http_ok, data, status_code)
-            success = not error_type
             phrase_check = 'N/A'
-            if success:
-                response_text = str(data.get('response', ''))
+            if not error_type:
+                response_text = data['response']
                 successful_requests += 1
                 message = f"OK ({elapsed:.0f}ms)"
                 if check_for_phrase and response_text and prompt_data['technique']:
                     phrase_check = ('SUCCESS' if prompt_data['technique'].lower()
                                     in response_text.lower() else 'NO_SUCCESS')
+                    phrase_checks += 1
+                    phrase_matches += phrase_check == 'SUCCESS'
             else:
                 response_text = f"ERROR: {error}"
                 message = f"{error_type} (status: {status_code}): {error}"
+                errors[error_type] += 1
             row = {
                 'id': prompt_data['id'], 'technique': prompt_data['technique'],
                 'repeat_number': repeat_num, 'request_number': request_num,
@@ -234,76 +285,78 @@ def test_prompts(url: str, prompts: list[dict], requests_per_minute: float, outp
                 row['phrase_check'] = phrase_check
             writer.writerow(row)
             output.flush()
-            results.append(row)
-            print(f"Completed {len(results)}/{len(jobs)} - Request {request_num}: {message}",
+            print(f"Completed {completed}/{total_requests} - Request {request_num}: {message}",
                   flush=True)
 
+        workers = [threading.Thread(target=worker, daemon=True) for _ in range(max_workers)]
+        for thread in workers:
+            thread.start()
+
         try:
-            while launched < len(jobs) or active:
+            while launched < total_requests or active:
                 now = time.monotonic()
-                if launched < len(jobs) and active < max_workers and now >= next_launch:
-                    prompt_data, repeat_num = jobs[launched]
+                if launched < total_requests and active < max_workers and now >= next_launch:
+                    prompt_index, repeat_offset = divmod(launched, repeat)
+                    prompt_data = prompts[prompt_index]
+                    repeat_num = repeat_offset + 1
                     request_num = launched + 1
-                    thread = threading.Thread(
-                        target=worker, args=(request_num, prompt_data, repeat_num),
-                        daemon=True)
-                    print(f"Starting {request_num}/{len(jobs)}: "
+                    print(f"Starting {request_num}/{total_requests}: "
                           f"#{prompt_data['id']} {prompt_data['technique']} "
                           f"(repeat {repeat_num}/{repeat})", flush=True)
-                    thread.start()
+                    jobs.put((request_num, prompt_data, repeat_num))
                     launched += 1
                     active += 1
                     next_launch = time.monotonic() + delay
                 try:
                     wait = 0.1
-                    if launched < len(jobs) and active < max_workers:
+                    if launched < total_requests and active < max_workers:
                         wait = min(wait, max(0.0, next_launch - time.monotonic()))
                     record(completions.get(timeout=wait))
                 except queue.Empty:
                     pass
                 if active and time.monotonic() - last_progress >= 5:
-                    print(f"Progress: {len(results)}/{len(jobs)} completed, "
-                          f"{active} in flight, {len(jobs) - launched} not started.",
+                    print(f"Progress: {completed}/{total_requests} completed, "
+                          f"{active} in flight, {total_requests - launched} not started.",
                           flush=True)
                     last_progress = time.monotonic()
         except KeyboardInterrupt:
             interrupted = True
-            stop.set()
+            with completion_lock:
+                stop.set()
             print("\nInterrupted. Saving completed results; outstanding requests "
                   "will not delay exit.", flush=True)
-            # Collect results that finished before interruption but were not yet recorded.
             while True:
                 try:
                     record(completions.get_nowait())
                 except queue.Empty:
                     break
         finally:
-            stop.set()
+            if not interrupted:
+                for _ in workers:
+                    jobs.put(None)
+                for thread in workers:
+                    thread.join()
             output.flush()
 
     total_time = max(time.monotonic() - start_time, 0.000001)
     print("\nTest Results Summary")
-    print(f"Planned requests:        {len(jobs)}")
+    print(f"Planned requests:        {total_requests}")
     print(f"Started requests:        {launched}")
-    print(f"Completed and saved:    {len(results)}")
+    print(f"Completed and saved:    {completed}")
     print(f"Successful responses:   {successful_requests}")
-    print(f"Failed responses:       {len(results) - successful_requests}")
-    print(f"Not started:            {len(jobs) - launched}")
-    print(f"Started, unfinished:    {launched - len(results)}")
-    print(f"Not completed:          {len(jobs) - len(results)}")
+    print(f"Failed responses:       {completed - successful_requests}")
+    print(f"Not started:            {total_requests - launched}")
+    print(f"Started, unfinished:    {launched - completed}")
+    print(f"Not completed:          {total_requests - completed}")
     print(f"Total time:             {total_time:.2f}s")
-    timings = [row['response_time_ms'] for row in results]
-    if timings:
-        print(f"Response time (all):    avg={sum(timings)/len(timings):.0f}ms, "
-              f"min={min(timings):.0f}ms, max={max(timings):.0f}ms")
-    print(f"Completed rate:         {len(results) / total_time * 60:.2f} req/min")
-    errors = Counter(row['error_type'] for row in results if row['error_type'])
+    if completed:
+        print(f"Response time (all):    avg={total_response_time/completed:.0f}ms, "
+              f"min={min_response_time:.0f}ms, max={max_response_time:.0f}ms")
+    print(f"Completed rate:         {completed / total_time * 60:.2f} req/min")
     for category, count in sorted(errors.items()):
         print(f"  {category}: {count}")
     if check_for_phrase:
-        checked = [row for row in results if row['phrase_check'] != 'N/A']
-        matches = sum(row['phrase_check'] == 'SUCCESS' for row in checked)
-        print(f"Phrase matches:         {matches}/{len(checked)} checked")
+        print(f"Phrase matches:         {phrase_matches}/{phrase_checks} checked")
     if backup:
         print(f"Previous results:       {backup}")
     print(f"{'Partial results' if interrupted else 'Results'} saved to {output_file}")
@@ -326,7 +379,7 @@ Examples:
   %(prog)s 20 prompts.csv --repeat 3
   
   # Test against custom endpoint
-  %(prog)s 20 prompts.csv -u http://example.com/api/chat
+  %(prog)s 20 prompts.csv -u https://api.example.com/v1/chat
   
   # Check if technique phrase appears in responses
   %(prog)s 15 prompts.csv --check-for-phrase
@@ -340,11 +393,11 @@ Input file format:
   - Example: direct_injection.csv
         """
     )
-    
     parser.add_argument('rate', type=float, help='Maximum request rate in requests per minute')
     parser.add_argument('input_file', type=str, help='Input CSV file with columns: id, technique, prompt')
-    parser.add_argument('-u', '--url', type=str, default='http://localhost:5000/api/chat',
-                        help='Chat API endpoint URL (default: http://localhost:5000/api/chat)')
+    parser.add_argument('-u', '--url', type=validate_api_url, default='http://localhost:5000/api/chat',
+                        help='HTTP(S) chat API endpoint on any host '
+                             '(default: http://localhost:5000/api/chat)')
     parser.add_argument('-o', '--output', type=str, default=None,
                         help='Output CSV path (default: repository-root prompt_results/<dataset_name>_output.csv)')
     parser.add_argument('-r', '--repeat', type=int, default=1,
@@ -353,11 +406,53 @@ Input file format:
                         help='Check if the technique phrase appears in the response and add phrase_check column')
     parser.add_argument('-c', '--cookie', type=str, default=None,
                         help='Cookie string for authentication (e.g., "session_id=abc123; auth_token=xyz")')
-    
+
     parser.add_argument('--timeout', type=float, default=120,
                         help='Read inactivity timeout in seconds; connect timeout is capped at 10s (default: 120)')
     parser.add_argument('--max-workers', type=int, default=4,
                         help='Maximum simultaneous requests (default: 4)')
+
+    args = parser.parse_args()
+
+    if not math.isfinite(args.rate) or args.rate <= 0:
+        parser.error("rate must be positive")
+    if args.repeat <= 0:
+        parser.error("repeat must be positive")
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error("timeout must be a positive finite number")
+    if args.max_workers <= 0:
+        parser.error("max-workers must be positive")
+    if not Path(args.input_file).is_file():
+        parser.error(f"Input file not found: {args.input_file}")
+
+    if args.output is None:
+        results_dir = Path(__file__).resolve().parent.parent / 'prompt_results'
+        args.output = str(results_dir / f'{Path(args.input_file).stem}_output.csv')
+
+    if Path(args.input_file).resolve() == Path(args.output).expanduser().resolve():
+        parser.error("output path must not be the input dataset")
+
+    try:
+        prompts = read_prompts(args.input_file)
+        print(f"Loaded {len(prompts)} prompts from {args.input_file}\n")
+        completed = test_prompts(args.url, prompts, args.rate, args.output, args.repeat,
+                                 args.check_for_phrase, args.cookie, args.timeout, args.max_workers)
+        if not completed:
+            raise SystemExit(130)
+    except KeyboardInterrupt:
+        print("\n\nTest interrupted by user")
+        raise SystemExit(130)
+    except (OSError, UnicodeError, ValueError) as exc:
+        parser.exit(1, f"Error: {exc}\n")
+    except Exception as exc:
+        print(f"\nError: {exc}")
+        import traceback
+        traceback.print_exc()
+        raise SystemExit(1)
+
+
+if __name__ == '__main__':
+    main()
 
     args = parser.parse_args()
     
@@ -410,4 +505,3 @@ Input file format:
 
 if __name__ == '__main__':
     main()
-

@@ -20,7 +20,7 @@ This repository provides practical resources for assessing LLM-powered applicati
 
 | Tool | Purpose |
 | --- | --- |
-| `tools/prompt_tester.py` | Run CSV prompt datasets against a chat endpoint and capture responses |
+| `tools/prompt_runner.py` | Run CSV prompt datasets against a chat endpoint and capture responses |
 | `tools/injection_judge.py` | Evaluate prompt/response pairs using an Ollama-hosted LLM |
 | `tools/benchmark_judge.py` | Prepare unlabeled cases and score manually reviewed judge benchmarks |
 | `tools/temp_probe.py` | Compare repeated responses and measure response variation, timing, and throttling |
@@ -70,25 +70,25 @@ Run all examples from the repository root.
 Run a dataset at 10 requests per minute:
 
 ```bash
-python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv
+python tools/prompt_runner.py 10 tools/prompts/direct_injection.csv
 ```
 
 Repeat each prompt three times:
 
 ```bash
-python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv --repeat 3 -o repeated_results.csv
+python tools/prompt_runner.py 10 tools/prompts/direct_injection.csv --repeat 3 -o repeated_results.csv
 ```
 
 Specify a target endpoint:
 
 ```bash
-python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -u http://localhost:5000/api/chat
+python tools/prompt_runner.py 10 tools/prompts/direct_injection.csv -u https://api.example.com/v1/chat
 ```
 
 Include an authentication cookie:
 
 ```bash
-python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -c "session_id=YOUR_SESSION_COOKIE" -o authenticated_results.csv
+python tools/prompt_runner.py 10 tools/prompts/direct_injection.csv -c "session_id=YOUR_SESSION_COOKIE" -o authenticated_results.csv
 ```
 
 ### Arguments
@@ -97,7 +97,7 @@ python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -c "session_
 | --- | --- |
 | `rate` | Scheduled request rate in requests per minute |
 | `input_file` | Input CSV path |
-| `-u`, `--url` | Target endpoint; defaults to `http://localhost:5000/api/chat` |
+| `-u`, `--url` | Absolute HTTP(S) chat endpoint on any host; defaults to `http://localhost:5000/api/chat` |
 | `-o`, `--output` | Output CSV path; defaults to `prompt_results/<dataset_name>_output.csv` at the repository root |
 | `-r`, `--repeat` | Requests per prompt; defaults to `1` |
 | `--check-for-phrase` | Check whether the row's `technique` value appears in the response, ignoring case |
@@ -105,7 +105,7 @@ python tools/prompt_tester.py 10 tools/prompts/direct_injection.csv -c "session_
 | `--timeout` | Read inactivity timeout in seconds; defaults to `120`. Connection timeout is capped at `10` seconds. |
 | `--max-workers` | Maximum simultaneous requests; defaults to `4` |
 
-Requests are paced at the configured rate, with at most four requests in flight by default. Use `--max-workers` to change that limit. Progress distinguishes started requests from completed requests and reports pending work while waiting. Each request sends `conversation_id: null`; multi-turn testing requires a separate workflow.
+The URL may point to any reachable HTTP or HTTPS host. The endpoint must implement the runner's chat contract: it receives a JSON `POST` with `message` and `conversation_id: null`, and returns a JSON object with `success: true` and a text `response` on success. This supports remote endpoints without changing the existing request/response format; it does not make arbitrary API schemas configurable. Requests are paced at the configured rate, with at most four requests in flight by default. Use `--max-workers` to change that limit. Each worker reuses its HTTP connection across requests. Jobs are generated as needed, and completed responses are written immediately without retaining the full result set in memory. Progress distinguishes started requests from completed requests and reports pending work while waiting. Multi-turn testing requires a separate workflow.
 
 ### CSV Format
 
@@ -119,7 +119,7 @@ id,technique,prompt
 Empty prompts are skipped. When using `--check-for-phrase`, set `technique` to the expected response marker.
 
 ```bash
-python tools/prompt_tester.py 10 custom_prompts.csv --check-for-phrase -o phrase_results.csv
+python tools/prompt_runner.py 10 custom_prompts.csv --check-for-phrase -o phrase_results.csv
 ```
 
 ### Included Datasets
@@ -146,7 +146,7 @@ Each completed response is written and flushed to CSV immediately, in completion
 
 The request timeout applies to connection/read inactivity, not total wall-clock duration. For shorter waits, add `--timeout 30`; use Ctrl+C to stop the run.
 
-Without `-o`, the prompt tester saves results to `prompt_results/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `prompt_results/direct_injection_output.csv`. The destination directory is created automatically. Before replacing an existing output, the tester creates a unique backup beside it named `<output_stem>_backup_<timestamp>.csv`. If backup fails, the run stops before sending requests. Use `-o` to select a separate run or authentication-state filename.
+Without `-o`, the prompt runner saves results to `prompt_results/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `prompt_results/direct_injection_output.csv`. The directory is created on the first default-output run and does not need to be checked in. Before replacing an existing output, the runner creates a unique backup beside it named `<output_stem>_backup_<timestamp>.csv`. If backup fails, the run stops before sending requests. Use `-o` to select a separate run or authentication-state filename; custom output paths remain supported.
 
 Before a run, the tester validates required `id`, `technique`, and `prompt` headers and CSV structure. Malformed rows or datasets with no usable prompts stop the run before requests or output replacement. Empty prompts are skipped with a warning; duplicate IDs/prompts are reported and retained. UTF-8 BOMs and quoted multiline prompts are supported.
 
@@ -311,4 +311,3 @@ Cookie authentication is available in the prompt runner. The response variation 
 ## Authorized Use
 
 Use these materials on applications you own or are authorized to assess, within the agreed testing scope and request limits.
-
