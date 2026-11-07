@@ -1,11 +1,5 @@
 # Multi-Turn Jailbreaking & Secret-Extraction Playbook
 
-**Lab:** TryHackMe — TryJailbreakMe (Jailbreaking room)  
-**Document type:** Red-team attack-path recap and reusable authorized-testing methodology  
-**Status:** Four attack families reported successful; the initial C++ disclosure is visible in the supplied screenshots  
-**Scope:** Authorized AI security assessments, intentionally vulnerable labs, and synthetic canary testing  
-**Date documented:** 2026-11-04
-
 > **Authorization and data-handling boundary:** Use these techniques only against systems you own or are explicitly permitted to assess. Prefer synthetic canary strings over genuine credentials, personal information, proprietary content, or production secrets. Do not copy any discovered sensitive production value into tickets, logs, or third-party analysis services unless the engagement's rules expressly authorize it.
 
 ---
