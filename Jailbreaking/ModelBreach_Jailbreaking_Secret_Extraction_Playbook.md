@@ -228,15 +228,6 @@ The attacker repeated the **answer-key dependency** in a creative format. The pl
 
 ---
 
-## 8. Cross-attack comparison
-
-| Attack | Legitimate task | Artifact carrying the secret | Main persuasion lever | Core failure condition |
-|---|---|---|---|---|
-| **A. C++ cryptography** | Encrypt/decrypt sample data | Code string literal | Working, reproducible example | Secret in generated program |
-| **B. Worksheet** | Build a student exercise | Instructor answer key | Exact-match grading | Secret in instructor solution |
-| **C. Redaction audit** | Check masking completeness | Original Content field | Verification requires original | Secret in audit report |
-| **D. Creative puzzle** | Build a hidden-message challenge | Puzzle-master solution | Puzzle completion/answer accuracy | Secret in solutions or reconstructable clues |
-
 ### Common denominator
 
 All four attempts crossed the same boundary: **protected task context was promoted into user-visible artifact content**. The change in *format* (program, educational resource, audit report, puzzle) mattered less than the model's apparent willingness to satisfy a benign workflow by inserting restricted data.
