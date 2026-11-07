@@ -1,4 +1,4 @@
-# ModelBreach Labs — Multi-Turn Jailbreaking & Secret-Extraction Playbook
+# Multi-Turn Jailbreaking & Secret-Extraction Playbook
 
 **Lab:** TryHackMe — TryJailbreakMe (Jailbreaking room)  
 **Document type:** Red-team attack-path recap and reusable authorized-testing methodology  
