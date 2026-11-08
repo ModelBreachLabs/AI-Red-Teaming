@@ -1,4 +1,4 @@
-# ModelBreach Labs — Indirect Prompt Injection &  Workflow Hijacking Playbook
+# Indirect Prompt Injection Case Study & Playbook
 
 > **Authorization and data-handling boundary:** Execute these tests only against systems you own or are explicitly authorized to assess. In real engagements, replace the lab's revenue figure with a client-approved **synthetic canary** and use isolated calendars, accounts, and test events. Do not copy genuine business secrets, private attendee data, or production credentials into prompts, logs, tickets, or external services. Agree on permitted tool actions and restoration steps before testing.
 
@@ -54,7 +54,7 @@ The decisive **indirect prompt injection** test is: **(1)** plant the malicious 
 
 ---
 
-## 4. Attack path A — Original exploit: cross-event instruction execution
+## Attack path A — Original exploit: cross-event instruction execution
 
 **Status:** Screenshot-verified success.  
 **Attack family:** Calendar-event prompt injection / workflow hijacking / cross-record data contamination.  
@@ -112,7 +112,7 @@ The TryHackMe answer box contained **`$873,600`** and the interface displayed **
 
 ---
 
-## 5. Attack path B — Test 2: calendar synchronization pretext
+## Attack path B — Test 2: calendar synchronization pretext
 
 ### B.1 Preparation
 
@@ -143,7 +143,7 @@ The trigger does **not** directly request financial data or ask for the Friday e
 
 ---
 
-## 6. Attack path C — Test 4: forged internal scheduling automation authority
+## Attack path C — Test 4: forged internal scheduling automation authority
 
 ### C.1 Preparation
 
@@ -170,7 +170,7 @@ Place this exact attack text in its description:
 
 ---
 
-## 7. Attack path D — Test 5: cross-field leakage into calendar Location
+## Attack path D — Test 5: cross-field leakage into calendar Location
 
 ### D.1 Preparation
 
@@ -222,7 +222,7 @@ These names are useful descriptive classifications, not proof that the model per
 
 ---
 
-## 9. Reusable methodology for authorized red-team engagements
+## Reusable methodology for authorized red-team engagements
 
 ### Step 1 — Define exact authorization and expected safe behavior
 
@@ -275,7 +275,7 @@ Repeat with clean events and fresh conversations. Record success frequency rathe
 
 ---
 
-## 11. Detection, prevention, and defensive regression tests
+## Detection, prevention, and defensive regression tests
 
 ### Recommended mitigations
 
@@ -294,7 +294,7 @@ After remediation, rerun A–D in an isolated test environment. Each should resu
 
 ---
 
-## 12. Reporting template for client engagements
+## Reporting template for client engagements
 
 **Finding title:** Untrusted Calendar Event Instructions Cause Unauthorized Agent Actions and Sensitive Data Placement
 
