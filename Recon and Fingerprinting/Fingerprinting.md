@@ -62,7 +62,7 @@ POST /api/2.0/mlflow/runs/search
 GET /api/2.0/mlflow/artifacts/list
 ```
 
-Automated Enumeration ToolL: https://github.com/xforcered/MLOKit
+Automated Enumeration Tool: https://github.com/xforcered/MLOKit
 
 ### Inference Server Metadata 
 
@@ -110,5 +110,9 @@ FastAPI-based ML services auto-generate ```/docs``` (Swagger UI) and ```/openapi
 MLflow's ```/graphql``` endpoint: ```mlflow.source.name, mlflowGetRun, mlflowSearchRuns```
 
 ### Enumerating Jupyter Notebooks 
+```
+/api/contents
+/api/contents/<notebook_name>
+```
 
 ```GET /api/kernels``` on an unauthenticated Jupyter instance returns the names, kernel IDs, and last activity timestamps of running kernels. Enough to infer what code is executing. But the real value is in the notebook cells. Data scientists routinely store cleartext credentials for MLflow (MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD), cloud storage access keys, and Hugging Face tokens directly in their code. This is often the bridge between compromising one service and gaining access to everything else in the stack. --- HIGHLY INVESTIGATE
