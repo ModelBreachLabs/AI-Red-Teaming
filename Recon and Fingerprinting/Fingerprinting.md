@@ -43,3 +43,72 @@ Fingerprinting AI services requires a different approach; you need to look at:
 - TLS Fingerprinting (JA3/JA4)
 
 ## Enumerating AI 
+
+### MLflow Enumeration Path 
+```
+1. List all experiments
+POST /api/2.0/mlflow/experiments/search
+
+2. List Registered Models
+GET /api/2.0/mlflow/registered-models/list
+
+3. Get Model Version
+GET /api/2.0/mlflow/model-versions/search
+
+4. Search Training Runs
+POST /api/2.0/mlflow/runs/search
+
+5. Downloadable Artifacts 
+GET /api/2.0/mlflow/artifacts/list
+```
+
+Automated Enumeration ToolL: https://github.com/xforcered/MLOKit
+
+### Inference Server Metadata 
+
+**Triton** and **TensorFlow** Serving both expose metadata endpoints that tell you exactly how to talk to the model.
+
+```
+# Triton
+GET /v2/models/<name>/config
+
+# TensorFlow
+GET /v1/models/<name>/metadata
+```
+
+### Enumerating Vector Databases
+
+Vector databases reveal what data the AI system is working with and which embedding model processes it.
+
+```
+# Weaviate 
+GET /v1/meta
+GET /v1/schema
+/v1/graphql
+
+# Qdrant
+GET /collections
+GET /collections/<name>
+
+# Chroma
+GET /api/v1/collections
+```
+
+### Prometheus Metrics as Intelligence
+
+Model servers often expose ```/metrics``` on a dedicated port (Triton on 8002, TorchServe on 8082). These Prometheus-format endpoints return:
+
+- Model names and version numbers currently loaded
+- Inference request counts and latency percentiles
+- Batch sizes being processed
+- GPU memory utilisation per model
+
+### Debug Interfaces & Information Leakage 
+
+FastAPI-based ML services auto-generate ```/docs``` (Swagger UI) and ```/openapi.json```. Both expose the full request/response schema, authentication requirements, and example payloads for every endpoint.
+
+MLflow's ```/graphql``` endpoint: ```mlflow.source.name, mlflowGetRun, mlflowSearchRuns```
+
+### Enumerating Jupyter Notebooks 
+
+```GET /api/kernels``` on an unauthenticated Jupyter instance returns the names, kernel IDs, and last activity timestamps of running kernels. Enough to infer what code is executing. But the real value is in the notebook cells. Data scientists routinely store cleartext credentials for MLflow (MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD), cloud storage access keys, and Hugging Face tokens directly in their code. This is often the bridge between compromising one service and gaining access to everything else in the stack. --- HIGHLY INVESTIGATE
