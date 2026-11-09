@@ -1,5 +1,3 @@
-# The AI Stack 
-
 ## Port and Protocol Reference
 
 | **Component** | **Default Port(s)** | **Protocol(s)** | **Recon Endpoints** |
