@@ -132,14 +132,106 @@ MLflow's ```/graphql``` endpoint: ```mlflow.source.name, mlflowGetRun, mlflowSea
   - One open registry maps the entire ML product portfolio.
 - Supply Chain Vulnerabilities 
 
+# Reconnaissance Methodology 
+
+1. Passive Reconnaissance
+
+    Before ever touching the network, see what is available publicly
 
 
+    Search Shodan, Censys, and FOFA for AI service banners on the organisation's IP ranges.
+    - port:5000 "MLflow",
+    - port:8888 title:"Home Page - Select or create a notebook",
+    - http.title:"Ray Dashboard".
+
+    Search GitHub for leaked credentials.
+    - filename:.env MLFLOW_TRACKING_URI,
+    - filename:.env HF_TOKEN,
+    - filename:config.json model_name site:github.com
+
+2. Active Scanning
+   ```
+   # Nmap ML/AI Ports
+   nmap -p 5000,6333,8000,8001,8002,8080,8265,8500,8501,8888,9000,11434,19530 -sV --script=http-title,http-headers <target>
+   ```
+3. API Fingerprinting
+   ```
+   # ffuf ML/AI Wordlist (Not exhuastive)
+   /v1/models
+   /v2/models
+   /v2/health/ready
+   /api/2.0/mlflow/experiments/list
+   /api/2.0/mlflow/registered-models/list
+   /pipeline/apis/v1beta1/pipelines
+   /api/serve/deployments/
+   /v1/schema
+   /v1/meta
+   /api/kernels
+   /api/contents
+   /openapi.json
+   /docs
+   /graphql
+   /metrics
+   /api/tags
+   /api/show
+   /collections
+   /healthz
+   /ping
+   ```
+
+4. Metadata Extraction
+   - On MLflow: Experiments, registered models, model versions (with artifact URIs and user IDs), training runs, and artifact listings. Five API calls that map the entire ML portfolio.
+   - On Triton or TF Serving: Model config endpoints for tensor specs and framework identification.
+   - On vector databases: Schema and collection endpoints for data type and embedding model identification.
+   - On Jupyter: Kernel listings and notebook cell contents for cleartext credentials.
 
 
+## Mitigating Detection 
+
+**Model enumeration pattern**
+A burst of sequential GET requests to /v2/models from a single IP. Normal users do not query model listings repeatedly in rapid succession.
+In a SIEM, this appears as 10-50 requests to the same endpoint within seconds, all from a single source.
+
+**Scripted MLflow access**
+API calls to /registered-models/list and /model-versions/search without a corresponding UI session.
+The MLflow web interface generates specific session cookies and additional requests.
+Raw API calls without those are a clear indicator of scripted enumeration.
+This is the exact pattern MLOKit produces.
+
+**Prometheus Scraping**
+
+ /metrics requests from IPs not in the known monitoring CIDR.
+Your Prometheus server has a known IP.
+Anyone else reading those metrics is performing reconnaissance.
+
+**AI Port Scanning**
+Port scans that hit 5000, 8000, 8001, 8080, 8265, 8888 in sequence from the same source.
+That is not a random scan.
+That is someone running the same Nmap command from Phase 2 of this methodology.
+
+**Path traversal against MLflow artifacts**
+Requests containing ../ or %2e%2e%2f against MLflow artifact endpoints.
+This signals someone probing for CVE-2026-2033.
+
+**Jupyter Access**
+/api/kernels and /api/contents requests without a valid session cookie.
+Either an attacker found the notebook server, or an automated tool is enumerating it.
 
 
+## Active and Passive Reconnaissance Tools 
 
+## Tool Reference
 
+Here is a quick reference for the tools that support each step:
 
-
-
+| **Tool** | **What It Does** | **Step** |
+|---|---|---|
+| Shodan / Censys / FOFA | Internet-wide search for AI service banners | Step 1 |
+| GitHub search (dorks) | Find leaked credentials and configs in public repos | Step 1 |
+| Nmap (with NSE scripts) | Port discovery and service version detection | Step 2 |
+| grpcurl | Interact with gRPC services, dump protobuf schemas if reflection is enabled | Step 2 |
+| ffuf / feroxbuster | Directory brute-forcing with AI-specific wordlists | Steps 2, 3 |
+| curl | Manual HTTP probing, header analysis, error triggering | Steps 3, 4 |
+| MLOKit (IBM X-Force Red) | Automated MLflow enumeration and model exfiltration | Step 4 |
+| Nuclei (ProjectDiscovery) | Template-based scanning for known AI service misconfigurations | Steps 2, 3 |
+| Agrus Scanner | Purpose-built shadow AI detection with 50+ AI-specific probes across all 65,535 ports | Step 2 |
