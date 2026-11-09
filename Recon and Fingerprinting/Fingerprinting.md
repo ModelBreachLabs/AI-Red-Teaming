@@ -1,14 +1,4 @@
-Tools: 
-- nmap
-- shodan (search examples)
-  - port:5000 "MLflow" for exposed MLflow instances
-  - port:8888 title:"Home Page - Select or create a notebook" for unauthenticated Jupyter notebooks
-  - http.title:"Ray Dashboard" for exposed Ray cluster dashboards
-  - port:8001 "triton"
-- ffuf
-- grpcurl
-
-# The AI Tech Stack 
+# The AI Stack 
 
 ## Port and Protocol Reference
 
