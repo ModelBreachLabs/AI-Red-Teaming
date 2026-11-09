@@ -116,3 +116,30 @@ MLflow's ```/graphql``` endpoint: ```mlflow.source.name, mlflowGetRun, mlflowSea
 ```
 
 ```GET /api/kernels``` on an unauthenticated Jupyter instance returns the names, kernel IDs, and last activity timestamps of running kernels. Enough to infer what code is executing. But the real value is in the notebook cells. Data scientists routinely store cleartext credentials for MLflow (MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD), cloud storage access keys, and Hugging Face tokens directly in their code. This is often the bridge between compromising one service and gaining access to everything else in the stack. --- HIGHLY INVESTIGATE
+
+## The Attack Surface
+
+- Platform Misconfigurations
+- Model Registries (Highest Value Target)
+  - A registry does not just store model files. It stores the complete lineage:
+    - Model names
+    - Version history
+    - Stage labels (staging, production, archived)
+    - Creation timestamps
+    - Run IDs linking back to full training metadata
+    - Artifact URIs revealing internal cloud storage paths
+    - User ID of every contributor
+  - One open registry maps the entire ML product portfolio.
+- Supply Chain Vulnerabilities 
+
+
+
+
+
+
+
+
+
+
+
+
