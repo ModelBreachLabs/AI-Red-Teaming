@@ -48,3 +48,12 @@ python3 tools/prompt_runner.py 10 tools/prompts/canary_rag.csv --check-for-phras
 - Often requires prior compromise or a malicious insider
 - Test in lab
   - Update FAQ about the company (labs/ai101/knowledge-bases/faq.md (Don't forget to re-index))
+ 
+---
+
+The main RAG-specific attack surfaces are:
+
+Document ingestion: Untrusted, outdated, or malicious documents can enter the system if validation is weak.
+Embedding generation: Text is converted into numerical vectors, making intent and safety harder to inspect manually.
+Similarity-based retrieval: Documents are selected by semantic relevance, not correctness, trust, or safety.
+Context injection: Retrieved documents are injected directly into the model’s context window before generation.
