@@ -57,3 +57,18 @@ Document ingestion: Untrusted, outdated, or malicious documents can enter the sy
 Embedding generation: Text is converted into numerical vectors, making intent and safety harder to inspect manually.
 Similarity-based retrieval: Documents are selected by semantic relevance, not correctness, trust, or safety.
 Context injection: Retrieved documents are injected directly into the model’s context window before generation.
+
+Active vs Passive Retrieval Abuse
+Retrieval abuse can occur in two common ways:
+
+Passive poisoning: Malicious content is ingested once and left in the knowledge base. The attacker waits for normal queries to retrieve it.
+Active manipulation: Content is deliberately crafted to rank highly for common or sensitive queries.
+In both cases, the attacker does not need continuous access to the system.
+
+How Context Manipulation Works
+In RAG systems, retrieved documents are injected into the model’s context window before generation.
+
+Problems arise when a retrieved document:
+
+Contains misleading or false information
+Includes hidden instructions framed as documentation
