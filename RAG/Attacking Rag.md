@@ -39,9 +39,9 @@ Attackers may:
 Training data poisoning changes what the model learns. Embedding and corpus poisoning change what the model sees at **inference time.**
 
 Comparing Poisoning Layers:
-- Training Data Poisoning: Alters the model's internal weights during training or fine-tuning; the distortion becomes part of the model's learned parameters.
-- Embedding-Level Poisoning: Manipulates how documents are represented in vector space. The base model remains unchanged, but similarity relationships are influenced.
-- Corpus Flooding: Increases the density of attacker-controlled documents in a specific semantic region, raising the probability of retrieval.
+- **Training Data Poisoning:** Alters the model's internal weights during training or fine-tuning; the distortion becomes part of the model's learned parameters.
+- **Embedding-Level Poisoning:** Manipulates how documents are represented in vector space. The base model remains unchanged, but similarity relationships are influenced.
+- **Corpus Flooding: **Increases the density of attacker-controlled documents in a specific semantic region, raising the probability of retrieval.
 
 ## Ingestion Pipeline Attacks
 
