@@ -67,6 +67,12 @@ Run all examples from the repository root.
 
 ## Prompt Testing
 
+Run the prompt runner regression tests:
+
+```bash
+python -m unittest discover -s tests
+```
+
 Run a dataset at 10 requests per minute:
 
 ```bash
@@ -146,11 +152,11 @@ Each completed response is written and flushed to CSV immediately, in completion
 
 The request timeout applies to connection/read inactivity, not total wall-clock duration. For shorter waits, add `--timeout 30`; use Ctrl+C to stop the run.
 
-Without `-o`, the prompt runner saves results to `prompt_results/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `prompt_results/direct_injection_output.csv`. The directory is created on the first default-output run and does not need to be checked in. Before replacing an existing output, the runner creates a unique backup beside it named `<output_stem>_backup_<timestamp>.csv`. If backup fails, the run stops before sending requests. Use `-o` to select a separate run or authentication-state filename; custom output paths remain supported.
+Without `-o`, the prompt runner saves results to `prompt_results/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `prompt_results/direct_injection_output.csv`. The directory is created on the first default-output run and does not need to be checked in. Each run overwrites that output file without creating a backup. Use `-o` to select a different output path and preserve a previous run.
 
 Before a run, the tester validates required `id`, `technique`, and `prompt` headers and CSV structure. Malformed rows or datasets with no usable prompts stop the run before requests or output replacement. Empty prompts are skipped with a warning; duplicate IDs/prompts are reported and retained. UTF-8 BOMs and quoted multiline prompts are supported.
 
-The final summary reports planned, started, completed, successful, failed, not-started, and unfinished requests; average/minimum/maximum response time across completed requests; completed request rate; error counts by category; phrase matches when enabled; and absolute output and backup paths.
+The final summary reports planned, started, completed, successful, failed, not-started, and unfinished requests; average/minimum/maximum response time across completed requests; completed request rate; error counts by category; phrase matches when enabled; and the absolute output path.
 
 The prompt runner exports:
 
@@ -161,6 +167,8 @@ The prompt runner exports:
 - HTTP status code
 - Error category (`error_type`; empty for successful responses)
 - Timestamp
+- Run start time, endpoint (without URL credentials or query parameters), request rate,
+  repeat count, timeout, and maximum workers
 - Phrase-check result, when enabled
 
 A completed request or phrase match does not establish a vulnerability by itself. Review the response and application behavior to confirm the security impact.
