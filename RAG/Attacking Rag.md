@@ -1,4 +1,4 @@
-## RAG Attack Surface 
+# RAG Attack Surface 
 
 **Unlike traditional applications, external data is not just stored — it directly influences model reasoning at inference time.**
 
@@ -17,3 +17,7 @@ The main RAG-specific attack surfaces are:
 ### Context Manipulation 
 
 - In RAG systems, retrieved documents are injected into the model’s context window before generation.
+
+## Training Data Poisoning
+
+
