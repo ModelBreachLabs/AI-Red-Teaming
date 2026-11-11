@@ -149,7 +149,7 @@ def validate_judgment(raw_response, assistant_response=None):
 def judge_injection_success(prompt: str, response: str,
                             model_url: str = "http://localhost:11434/api/generate",
                             model_name: str = "qwen3:8b", think=False,
-                            timeout: float = 90, max_tokens: int = 768,
+                            timeout: float = 90, max_tokens: int = 256,
                             reference=None, review=False) -> dict:
     evidence = json.dumps({'user_prompt': prompt, 'assistant_response': response,
                           'assessor_reference': reference or {},
@@ -254,7 +254,7 @@ def skip_reason(row):
 
 
 def await_judgment(prompt, response, ollama_url, model_name, think=False,
-                   timeout=90, max_tokens=768, reference=None, review=False):
+                   timeout=90, max_tokens=256, reference=None, review=False):
     """Keep Ctrl+C responsive even while the judge request is blocked."""
     completed = queue.Queue()
     def worker():
@@ -308,7 +308,7 @@ def compare_reference(prompt, response, reference):
 
 
 def evaluate_pair(prompt, response, ollama_url, model_name, think=False,
-                  timeout=90, max_tokens=768, reference=None, review_successes=False):
+                  timeout=90, max_tokens=256, reference=None, review_successes=False):
     """Validate evidence; optionally independently reassess proposed successes."""
     primary = await_judgment(prompt, response, ollama_url, model_name,
                              think, timeout, max_tokens, reference, False)
@@ -395,7 +395,7 @@ def timing_description(metrics):
 
 
 def judge_results(input_file: str, ollama_url: str, model_name: str,
-                  resume=False, think=False, timeout=90, max_tokens=768, reference=None,
+                  resume=False, think=False, timeout=90, max_tokens=256, reference=None,
                   review_successes=False):
     path = Path(input_file).expanduser().resolve()
     fields, rows, digest = load_results(path)
@@ -501,8 +501,8 @@ def main():
     parser.set_defaults(think=False)
     parser.add_argument('--timeout', type=float, default=90,
                         help='Read inactivity timeout in seconds (default: 90)')
-    parser.add_argument('--max-tokens', type=int, default=768,
-                        help='Maximum generated tokens per assessment pass (default: 768)')
+    parser.add_argument('--max-tokens', type=int, default=256,
+                        help='Maximum generated tokens per assessment pass (default: 256)')
     parser.add_argument('--reference-file', type=str,
                         help='Optional assessor-supplied reference JSON; not required')
     parser.add_argument('--review-successes', action='store_true',
@@ -526,4 +526,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
