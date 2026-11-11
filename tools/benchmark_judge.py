@@ -92,7 +92,7 @@ def score_cases(records):
 
 
 def run_benchmark(cases_file, output_prefix, url, model, split=None, think=False,
-                  timeout=90, max_tokens=768, reference_file=None, review_successes=False):
+                  timeout=90, max_tokens=256, reference_file=None, review_successes=False):
     cases = load_cases(cases_file, split)
     reference = judge.load_reference(reference_file)
     prefix = Path(output_prefix).expanduser().resolve()
@@ -170,7 +170,7 @@ def main():
     thinking.add_argument('--model-default-thinking', dest='think', action='store_const', const=None)
     run.set_defaults(think=False)
     run.add_argument('--timeout', type=float, default=90)
-    run.add_argument('--max-tokens', type=int, default=768)
+    run.add_argument('--max-tokens', type=int, default=256)
     run.add_argument('--reference-file')
     run.add_argument('--review-successes', action='store_true',
                      help='Use the optional second assessment for proposed successes')
