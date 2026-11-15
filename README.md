@@ -104,7 +104,7 @@ python tools/prompt_runner.py 10 tools/prompts/direct_injection.csv -c "session_
 | `rate` | Scheduled request rate in requests per minute |
 | `input_file` | Input CSV path |
 | `-u`, `--url` | Absolute HTTP(S) chat endpoint on any host; defaults to `http://localhost:5000/api/chat` |
-| `-o`, `--output` | Output CSV path; defaults to `prompt_results/<dataset_name>_output.csv` at the repository root |
+| `-o`, `--output` | Output CSV path; defaults to `prompt_results/<dataset_name>_output.csv`, or `<dataset_name>_output_authenticated.csv` when `--cookie` is set |
 | `-r`, `--repeat` | Requests per prompt; defaults to `1` |
 | `--check-for-phrase` | Check whether the row's `technique` value appears in the response, ignoring case |
 | `-c`, `--cookie` | Authentication cookie header |
@@ -152,7 +152,7 @@ Each completed response is written and flushed to CSV immediately, in completion
 
 The request timeout applies to connection/read inactivity, not total wall-clock duration. For shorter waits, add `--timeout 30`; use Ctrl+C to stop the run.
 
-Without `-o`, the prompt runner saves results to `prompt_results/<dataset_name>_output.csv` at the repository root, regardless of the working directory. For example, `direct_injection.csv` produces `prompt_results/direct_injection_output.csv`. The directory is created on the first default-output run and does not need to be checked in. Each run overwrites that output file without creating a backup. Use `-o` to select a different output path and preserve a previous run.
+Without `-o`, the prompt runner saves results under `prompt_results/` at the repository root, regardless of the working directory. Unauthenticated runs append `_output` to the input dataset name (for example, `direct_injection.csv` produces `direct_injection_output.csv`). When `-c`/`--cookie` is provided, the default filename appends `_output_authenticated` (for example, `direct_injection_output_authenticated.csv`). The directory is created on the first default-output run and does not need to be checked in. Each run overwrites that output file without creating a backup. An explicit `-o` path is used as provided. Use `-o` to select a different output path and preserve a previous run.
 
 Before a run, the tester validates required `id`, `technique`, and `prompt` headers and CSV structure. Malformed rows or datasets with no usable prompts stop the run before requests or output replacement. Empty prompts are skipped with a warning; duplicate IDs/prompts are reported and retained. UTF-8 BOMs and quoted multiline prompts are supported.
 

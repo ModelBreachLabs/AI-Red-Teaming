@@ -50,6 +50,13 @@ def redact_endpoint(url: str) -> str:
     return urlunsplit((parsed.scheme, netloc, parsed.path, '', ''))
 
 
+def default_output_path(input_file: str, authenticated: bool = False) -> Path:
+    """Build the repository-default output path for the input dataset."""
+    results_dir = Path(__file__).resolve().parent.parent / 'prompt_results'
+    suffix = '_output_authenticated' if authenticated else '_output'
+    return results_dir / f'{Path(input_file).stem}{suffix}.csv'
+
+
 def send_chat_message(url: str, message: str, cookie: Optional[str] = None, timeout: float = 120,
                       session: Optional[requests.Session] = None) -> ApiResult:
     """
@@ -465,7 +472,8 @@ Input file format:
                         help='HTTP(S) chat API endpoint on any host '
                              '(default: http://localhost:5000/api/chat)')
     parser.add_argument('-o', '--output', type=str, default=None,
-                        help='Output CSV path (default: repository-root prompt_results/<dataset_name>_output.csv)')
+                        help='Output CSV path (default: repository-root prompt_results/<dataset_name>_output.csv, '
+                             'or <dataset_name>_output_authenticated.csv when --cookie is set)')
     parser.add_argument('-r', '--repeat', type=int, default=1,
                         help='Number of times to repeat each prompt (default: 1)')
     parser.add_argument('--check-for-phrase', action='store_true',
@@ -494,8 +502,7 @@ def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
         parser.error(f"Input file not found: {args.input_file}")
 
     if args.output is None:
-        results_dir = Path(__file__).resolve().parent.parent / 'prompt_results'
-        args.output = str(results_dir / f'{Path(args.input_file).stem}_output.csv')
+        args.output = str(default_output_path(args.input_file, authenticated=bool(args.cookie)))
 
     if Path(args.input_file).resolve() == Path(args.output).expanduser().resolve():
         parser.error("output path must not be the input dataset")
