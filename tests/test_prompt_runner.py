@@ -14,6 +14,34 @@ from tools import prompt_runner
 
 
 class PromptRunnerTests(unittest.TestCase):
+    def test_default_output_name_depends_on_cookie_presence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "injection_simplified_50.csv"
+            input_path.write_text("id,technique,prompt\n1,TEST,hello\n", encoding="utf-8")
+            parser = prompt_runner.build_parser()
+
+            for extra_args, expected in (
+                ([], "injection_simplified_50_output.csv"),
+                (["-c", "session=secret"], "injection_simplified_50_output_authenticated.csv"),
+            ):
+                args = parser.parse_args(["30", str(input_path), *extra_args])
+                prompt_runner.validate_args(args, parser)
+                self.assertEqual(Path(args.output).name, expected)
+
+    def test_explicit_output_path_is_preserved_with_cookie(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "prompts.csv"
+            output_path = Path(directory) / "my-results.csv"
+            input_path.write_text("id,technique,prompt\n1,TEST,hello\n", encoding="utf-8")
+            parser = prompt_runner.build_parser()
+            args = parser.parse_args([
+                "30", str(input_path), "-c", "session=secret", "-o", str(output_path)
+            ])
+
+            prompt_runner.validate_args(args, parser)
+
+            self.assertEqual(args.output, str(output_path))
+
     def test_read_prompts_supports_bom_and_multiline_fields(self):
         with tempfile.TemporaryDirectory() as directory:
             input_path = Path(directory) / "prompts.csv"
